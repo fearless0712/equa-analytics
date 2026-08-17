@@ -81,6 +81,35 @@ def test_dashboard_post_renders_directly_without_redirect(
     assert "location" not in response.headers
 
 
+def test_dashboard_formats_repeating_decimals_in_presentation_only(
+    client: TestClient,
+) -> None:
+    data = (
+        b"date,product,category,region,quantity,unit_price\n"
+        b"2026-01-01,Alpha,Office,North,3,1000\n"
+        b"2026-02-01,Beta,Home,South,4,500\n"
+    )
+    response = client.post(
+        "/dashboard",
+        files={"file": ("sales.csv", data, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert "714.29" in response.text
+    assert "-33.33%" in response.text
+    assert "714.285714285714" not in response.text
+    assert "-33.333333333333" not in response.text
+
+
+def test_dashboard_template_uses_central_formatters_for_change_metrics() -> None:
+    template = Path("app/templates/dashboard.html").read_text()
+
+    assert "item.sales_change | signed_number" in template
+    assert "item.sales_change_pct | signed_percentage" in template
+    assert "growth.change_amount | signed_number" in template
+    assert "item | insight_summary" in template
+
+
 def test_dashboard_renders_safe_validation_errors(client: TestClient) -> None:
     data = b"date,product\nPRIVATE_CSV_BODY,value\n"
     response = client.post(

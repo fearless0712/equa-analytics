@@ -26,8 +26,11 @@ from app.web.upload_adapter import read_bounded_upload
 from app.presentation.charts import build_dashboard_charts
 from app.presentation.formatters import (
     format_decimal,
+    format_insight_summary,
     format_integer,
     format_percentage,
+    format_signed_number,
+    format_signed_percentage,
 )
 from app.security.csrf import CSRF_COOKIE_NAME, require_csrf, set_csrf_cookie
 
@@ -35,8 +38,11 @@ router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
 templates.env.filters.update(
     decimal=format_decimal,
+    insight_summary=format_insight_summary,
     integer=format_integer,
     percentage=format_percentage,
+    signed_number=format_signed_number,
+    signed_percentage=format_signed_percentage,
 )
 
 

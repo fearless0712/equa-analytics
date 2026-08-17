@@ -66,6 +66,7 @@ def _monthly_sales_chart(analysis: AnalysisResult) -> ChartSpec:
     )
     _base_layout(figure, "Monthly Sales")
     figure.update_yaxes(title_text="Sales")
+    figure.update_yaxes(tickformat=",.2f")
     return _encode("monthly-sales-chart", "Monthly Sales", figure)
 
 
@@ -112,6 +113,7 @@ def _dimension_bar(
     _base_layout(figure, title)
     figure.update_layout(margin={"l": 120, "r": 20, "t": 54, "b": 48})
     figure.update_xaxes(title_text="Sales")
+    figure.update_xaxes(tickformat=",.2f")
     figure.update_yaxes(autorange="reversed")
     return _encode(chart_id, title, figure)
 

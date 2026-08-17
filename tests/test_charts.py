@@ -47,6 +47,8 @@ def test_builds_all_required_chart_specs_from_analysis_result() -> None:
     assert decode(charts.top_products.payload)["data"][0]["orientation"] == "h"
     assert decode(charts.categories.payload)["data"][0]["y"] == ["Home", "Office"]
     assert decode(charts.regions.payload)["data"][0]["y"] == ["North", "South"]
+    assert decode(charts.monthly_sales.payload)["layout"]["yaxis"]["tickformat"] == ",.2f"
+    assert decode(charts.top_products.payload)["layout"]["xaxis"]["tickformat"] == ",.2f"
     assert "No source rows / imputed zero" in decode(
         charts.monthly_sales.payload
     )["data"][0]["customdata"]
