@@ -1,0 +1,13 @@
+date,product,category,region,quantity,unit_price,discount,customer_type
+2026-01-03,Desk Lamp,Office,North,3,4200,,Retail
+2026-01-08,Storage Box,Home,West,5,1800,0.10,Wholesale
+2026-01-17,Travel Mug,Lifestyle,East,8,2400,0,Retail
+2026-02-02,Desk Lamp,Office,South,4,4200,0.05,Corporate
+2026-02-11,Notebook Set,Office,North,12,950,,Retail
+2026-02-21,Kitchen Rack,Home,West,2,7600,0.15,Wholesale
+2026-03-04,Travel Mug,Lifestyle,South,6,2400,,Corporate
+2026-03-12,Storage Box,Home,East,7,1800,0.10,Retail
+2026-03-19,Desk Chair,Office,North,2,18500,0.05,Corporate
+2026-04-06,Notebook Set,Office,West,15,950,,Wholesale
+2026-04-14,Kitchen Rack,Home,South,3,7600,0.10,Retail
+2026-04-23,Desk Chair,Office,East,1,18500,0,Corporate

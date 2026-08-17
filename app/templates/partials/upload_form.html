@@ -1,0 +1,13 @@
+<form class="upload-form" action="/dashboard" method="post" enctype="multipart/form-data" data-upload-form aria-busy="false">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="upload-control">
+    <label class="file-label" for="csv-file">CSV file</label>
+    <input id="csv-file" name="file" type="file" accept=".csv,text/csv" required data-file-input>
+    <span class="selected-file" data-file-name>No file selected</span>
+  </div>
+  <button class="primary-button" type="submit" data-submit-button>
+    <span data-button-label>Analyze Data</span>
+  </button>
+</form>
+<p class="upload-limits">UTF-8 / UTF-8 BOM · Maximum 5 MB · Maximum 10,000 rows</p>
+<p class="column-hint">Required: date, product, category, region, quantity, unit_price</p>

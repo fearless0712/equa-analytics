@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="intro" aria-labelledby="page-title">
+  <p class="eyebrow">BUSINESS INTELLIGENCE</p>
+  <h1 id="page-title">EQUA Analytics</h1>
+  <p class="lead">Business Performance Dashboard</p>
+  <p class="intro-copy">Data analysis dashboard for business decision-making</p>
+  <div class="upload-panel">
+    <h2>Analyze sales data</h2>
+    {% include "partials/upload_form.html" %}
+  </div>
+  {% if errors %}
+  <section class="error-panel" aria-labelledby="validation-errors" role="alert">
+    <h2 id="validation-errors">CSV validation failed</h2>
+    <ul>{% for error in errors %}<li><strong>{{ error.code.value }}</strong><span>{{ error.message }}</span>{% if error.field %}<span>Field: {{ error.field }}</span>{% endif %}{% if error.row %}<span>Row: {{ error.row }}</span>{% endif %}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

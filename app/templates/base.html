@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="EQUA Analytics business data analysis dashboard">
+    <title>{% block title %}EQUA Analytics{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+    <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
+    {% block head_scripts %}{% endblock %}
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="EQUA Analytics home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        EQUA Analytics
+      </a>
+      <span class="phase-label">Phase 1 · Dashboard</span>
+    </header>
+    <main>{% block content %}{% endblock %}</main>
+  </body>
+</html>

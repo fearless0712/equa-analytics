@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Business Performance Dashboard · EQUA Analytics{% endblock %}
+
+{% block head_scripts %}
+<script src="{{ url_for('static', path='/vendor/plotly.min.js') }}" defer></script>
+<script src="{{ url_for('static', path='/js/dashboard.js') }}" defer></script>
+<script src="{{ url_for('static', path='/js/ai_insights.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell">
+  <section class="dashboard-heading" aria-labelledby="dashboard-title">
+    <div>
+      <p class="eyebrow">BUSINESS PERFORMANCE</p>
+      <h1 id="dashboard-title">Performance Dashboard</h1>
+      <p class="lead">Validated sales performance across time, products, categories, and regions.</p>
+    </div>
+    <div class="dashboard-upload">{% include "partials/upload_form.html" %}</div>
+  </section>
+
+  <section class="section-block" aria-labelledby="quality-title">
+    <div class="section-heading">
+      <div><p class="section-index">01</p><h2 id="quality-title">Data Quality</h2></div>
+      <p>Duplicate rows are detected and retained in every calculation.</p>
+    </div>
+    <dl class="quality-grid quality-grid-expanded">
+      <div><dt>Total Rows</dt><dd>{{ analysis.quality.total_rows | integer }}</dd></div>
+      <div><dt>Valid Rows</dt><dd>{{ analysis.quality.valid_rows | integer }}</dd></div>
+      <div><dt>Invalid Rows</dt><dd>{{ analysis.quality.invalid_rows | integer }}</dd></div>
+      <div><dt>Duplicate Rows</dt><dd>{{ analysis.quality.duplicate_rows | integer }}</dd></div>
+      <div><dt>Missing Optional Values</dt><dd>{{ analysis.quality.missing_optional_values | integer }}</dd></div>
+      <div><dt>Date Range</dt><dd class="quality-date">{{ insights.metadata.date_from or "N/A" }}<span>to</span>{{ insights.metadata.date_to or "N/A" }}</dd></div>
+      <div><dt>Observed Months</dt><dd>{{ insights.metadata.observed_months | integer }}</dd></div>
+      <div><dt>Imputed Months</dt><dd>{{ insights.metadata.imputed_months | integer }}</dd></div>
+      <div><dt>Potential Outliers</dt><dd>{{ insights.metadata.potential_outliers | integer }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="section-block" aria-labelledby="kpi-title">
+    <div class="section-heading"><div><p class="section-index">02</p><h2 id="kpi-title">Key Metrics</h2></div></div>
+    <dl class="kpi-grid">
+      <div class="kpi-card"><dt>Total Sales</dt><dd>{{ analysis.kpis.total_sales | decimal }}</dd></div>
+      <div class="kpi-card"><dt>Total Quantity</dt><dd>{{ analysis.kpis.total_quantity | integer }}</dd></div>
+      <div class="kpi-card"><dt>Transactions</dt><dd>{{ analysis.kpis.transaction_count | integer }}</dd></div>
+      <div class="kpi-card"><dt>Average Order Value</dt><dd>{{ analysis.kpis.average_order_value | decimal }}</dd></div>
+      <div class="kpi-card"><dt>Average Unit Price</dt><dd>{{ analysis.kpis.average_unit_price | decimal }}</dd></div>
+      <div class="kpi-card"><dt>Products</dt><dd>{{ analysis.kpis.unique_products | integer }}</dd></div>
+      <div class="kpi-card"><dt>Categories</dt><dd>{{ analysis.kpis.unique_categories | integer }}</dd></div>
+      <div class="kpi-card"><dt>Regions</dt><dd>{{ analysis.kpis.unique_regions | integer }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="section-block" aria-labelledby="monthly-title">
+    <div class="section-heading"><div><p class="section-index">03</p><h2 id="monthly-title">Monthly Performance</h2></div><p>Muted points indicate months with no source rows.</p></div>
+    <div class="chart-grid">
+      {% for chart in [charts.monthly_sales, charts.monthly_quantity] %}
+      <div class="chart-panel">
+        <h3>{{ chart.title }}</h3>
+        <div id="{{ chart.chart_id }}" class="plotly-chart" data-chart-spec="{{ chart.payload }}" role="img" aria-label="{{ chart.title }} chart"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="table-scroll" tabindex="0" aria-label="Monthly performance table">
+      <table><thead><tr><th>Month</th><th>Sales</th><th>Change</th><th>Change %</th><th>Quantity</th><th>Source</th></tr></thead>
+      <tbody>{% for item in analysis.monthly %}<tr><th scope="row">{{ item.year_month }}</th><td>{{ item.sales | decimal }}</td><td>{{ item.sales_change | decimal }}</td><td>{{ item.sales_change_pct | percentage }}</td><td>{{ item.quantity | integer }}</td><td>{{ "Imputed zero" if item.is_imputed else "Source rows" }}</td></tr>{% endfor %}</tbody></table>
+    </div>
+  </section>
+
+  <section class="section-block" aria-labelledby="product-title">
+    <div class="section-heading"><div><p class="section-index">04</p><h2 id="product-title">Product Performance</h2></div></div>
+    <div class="chart-panel"><h3>{{ charts.top_products.title }}</h3><div id="{{ charts.top_products.chart_id }}" class="plotly-chart" data-chart-spec="{{ charts.top_products.payload }}" role="img" aria-label="Top products by sales chart"></div></div>
+    <div class="split-tables">
+      <div><h3>Top Products</h3><div class="table-scroll" tabindex="0"><table><thead><tr><th>Rank</th><th>Product</th><th>Sales</th><th>Quantity</th><th>Share</th></tr></thead><tbody>{% for item in analysis.top_products %}<tr><td>{{ item.rank }}</td><th scope="row">{{ item.name }}</th><td>{{ item.sales | decimal }}</td><td>{{ item.quantity | integer }}</td><td>{{ item.sales_share | percentage }}</td></tr>{% endfor %}</tbody></table></div></div>
+      <div><h3>Bottom Products</h3><div class="table-scroll" tabindex="0"><table><thead><tr><th>Rank</th><th>Product</th><th>Sales</th><th>Quantity</th><th>Share</th></tr></thead><tbody>{% for item in analysis.bottom_products %}<tr><td>{{ item.rank }}</td><th scope="row">{{ item.name }}</th><td>{{ item.sales | decimal }}</td><td>{{ item.quantity | integer }}</td><td>{{ item.sales_share | percentage }}</td></tr>{% endfor %}</tbody></table></div></div>
+    </div>
+  </section>
+
+  <section class="section-block" aria-labelledby="category-title">
+    <div class="section-heading"><div><p class="section-index">05</p><h2 id="category-title">Category Performance</h2></div></div>
+    <div class="chart-panel"><h3>{{ charts.categories.title }}</h3><div id="{{ charts.categories.chart_id }}" class="plotly-chart" data-chart-spec="{{ charts.categories.payload }}" role="img" aria-label="Sales by category chart"></div></div>
+    <div class="movement-grid">
+      {% set growth = analysis.largest_category_growth %}
+      {% set decline = analysis.largest_category_decline %}
+      <article class="movement-callout"><p class="callout-label">{{ "Largest positive change" if growth and growth.change_amount > 0 else "Highest category change (no positive growth)" }}</p>{% if growth %}<h3>{{ growth.name }}</h3><dl><div><dt>Previous</dt><dd>{{ growth.previous_sales | decimal }}</dd></div><div><dt>Current</dt><dd>{{ growth.current_sales | decimal }}</dd></div><div><dt>Change</dt><dd>{{ growth.change_amount | decimal }} · {{ growth.change_pct | percentage }}</dd></div></dl>{% else %}<p>N/A</p>{% endif %}</article>
+      <article class="movement-callout"><p class="callout-label">{{ "Largest negative change" if decline and decline.change_amount < 0 else "Lowest category change (no negative decline)" }}</p>{% if decline %}<h3>{{ decline.name }}</h3><dl><div><dt>Previous</dt><dd>{{ decline.previous_sales | decimal }}</dd></div><div><dt>Current</dt><dd>{{ decline.current_sales | decimal }}</dd></div><div><dt>Change</dt><dd>{{ decline.change_amount | decimal }} · {{ decline.change_pct | percentage }}</dd></div></dl>{% else %}<p>N/A</p>{% endif %}</article>
+    </div>
+    <div class="table-scroll" tabindex="0"><table><thead><tr><th>Rank</th><th>Category</th><th>Sales</th><th>Quantity</th><th>Share</th></tr></thead><tbody>{% for item in analysis.categories %}<tr><td>{{ item.rank }}</td><th scope="row">{{ item.name }}</th><td>{{ item.sales | decimal }}</td><td>{{ item.quantity | integer }}</td><td>{{ item.sales_share | percentage }}</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="section-block" aria-labelledby="region-title">
+    <div class="section-heading"><div><p class="section-index">06</p><h2 id="region-title">Regional Performance</h2></div></div>
+    <div class="chart-panel"><h3>{{ charts.regions.title }}</h3><div id="{{ charts.regions.chart_id }}" class="plotly-chart" data-chart-spec="{{ charts.regions.payload }}" role="img" aria-label="Sales by region chart"></div></div>
+    <div class="table-scroll" tabindex="0"><table><thead><tr><th>Rank</th><th>Region</th><th>Sales</th><th>Quantity</th><th>Share</th></tr></thead><tbody>{% for item in analysis.regions %}<tr><td>{{ item.rank }}</td><th scope="row">{{ item.name }}</th><td>{{ item.sales | decimal }}</td><td>{{ item.quantity | integer }}</td><td>{{ item.sales_share | percentage }}</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="section-block" aria-labelledby="insights-title">
+    <div class="section-heading"><div><p class="section-index">07</p><h2 id="insights-title">Detected Insights</h2></div><p>Calculated deterministically from uploaded data.</p></div>
+    <div class="insight-groups">
+      <section aria-labelledby="business-insights-title"><h3 id="business-insights-title">Business Signals</h3><ul class="insight-list">{% for item in insights.business_insights %}<li class="insight-item severity-{{ item.severity.value }}"><span class="severity-label">{{ item.severity.value }}</span><div><h4>{{ item.title }}</h4><p>{{ item.summary }}</p>{% if item.change_amount is not none %}<p class="insight-metric">Change: {{ item.change_amount | decimal }} · {{ item.change_pct | percentage }}</p>{% endif %}</div></li>{% else %}<li class="empty-insight">No business signals detected.</li>{% endfor %}</ul></section>
+      <section aria-labelledby="quality-insights-title"><h3 id="quality-insights-title">Data Quality Signals</h3><ul class="insight-list">{% for item in insights.quality_insights %}<li class="insight-item severity-{{ item.severity.value }}"><span class="severity-label">{{ item.severity.value }}</span><div><h4>{{ item.title }}</h4><p>{{ item.summary }}</p></div></li>{% else %}<li class="empty-insight">No data quality signals detected.</li>{% endfor %}</ul></section>
+      <section aria-labelledby="outlier-insights-title"><h3 id="outlier-insights-title">Potential Outliers</h3><ul class="insight-list">{% for item in insights.outlier_insights %}<li class="insight-item severity-{{ item.severity.value }}"><span class="severity-label">{{ item.severity.value }}</span><div><h4>{{ item.title }}</h4><p>{{ item.summary }}</p></div></li>{% else %}<li class="empty-insight">No potential outliers detected under the current IQR rule.</li>{% endfor %}</ul></section>
+    </div>
+  </section>
+
+  <section class="section-block ai-section" aria-labelledby="ai-title">
+    <div class="section-heading"><div><p class="section-index">08</p><h2 id="ai-title">AI Insights</h2></div><p>Optional AI interpretation, separate from calculated insights.</p></div>
+    <p>AI interprets calculated results. It does not calculate KPIs or inspect raw CSV rows.</p>
+    {% if ai_response %}
+    <div class="ai-results" aria-live="polite">
+      <section><h3>Executive Summary</h3><p>{{ ai_response.executive_summary }}</p></section>
+      <section><h3>Key Findings</h3><ul>{% for finding in ai_response.key_findings %}<li><strong>{{ finding.title }}</strong><span class="severity-label">{{ finding.importance.value }}</span><p>{{ finding.observation }}</p><p class="insight-metric">Evidence: {{ finding.evidence }}</p></li>{% endfor %}</ul></section>
+      <section><h3>Risks / Watchpoints</h3><ul>{% for item in ai_response.risks_or_watchpoints %}<li>{{ item }}</li>{% endfor %}</ul></section>
+      <section><h3>Recommended Checks</h3><ul>{% for item in ai_response.recommended_checks %}<li>{{ item }}</li>{% endfor %}</ul></section>
+      {% if ai_response.data_quality_note %}<section><h3>Data Quality Note</h3><p>{{ ai_response.data_quality_note }}</p></section>{% endif %}
+    </div>
+    {% elif ai_error %}
+    <div class="ai-error" role="alert"><strong>{{ ai_error.value }}</strong><p>AI Insights are temporarily unavailable. The calculated dashboard remains available.</p></div>
+    {% endif %}
+    <form action="/ai/insights" method="post" enctype="multipart/form-data" data-ai-form aria-busy="false">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="ai-csv-file">Select the same CSV to generate an interpretation</label>
+      <input id="ai-csv-file" name="file" type="file" accept=".csv,text/csv" required {% if ai_mode == 'disabled' %}disabled{% endif %}>
+      <button class="primary-button" type="submit" data-ai-submit {% if ai_mode == 'disabled' %}disabled{% endif %}><span data-ai-label>{{ "AI unavailable" if ai_mode == "disabled" else "Generate AI Insights" }}</span></button>
+    </form>
+  </section>
+</div>
+{% endblock %}
