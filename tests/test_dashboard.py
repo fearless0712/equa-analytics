@@ -12,6 +12,7 @@ def test_home_has_accessible_upload_form_and_security_headers(
 
     assert response.status_code == 200
     assert 'action="/dashboard"' in response.text
+    assert 'method="post"' in response.text
     assert 'for="csv-file"' in response.text
     assert 'id="csv-file"' in response.text
     assert 'aria-busy="false"' in response.text
@@ -54,6 +55,30 @@ def test_valid_sample_renders_complete_dashboard(client: TestClient) -> None:
     assert "Data Quality Signals" in response.text
     assert response.text.count("data-chart-spec=") == 5
     assert "/static/vendor/plotly.min.js" in response.text
+
+
+def test_dashboard_get_redirects_to_upload_without_404(
+    client: TestClient,
+) -> None:
+    response = client.get("/dashboard", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+
+
+def test_dashboard_post_renders_directly_without_redirect(
+    client: TestClient,
+) -> None:
+    sample = Path("sample_data/valid_sales.csv").read_bytes()
+    response = client.post(
+        "/dashboard",
+        files={"file": ("sales.csv", sample, "text/csv")},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 200
+    assert "Performance Dashboard" in response.text
+    assert "location" not in response.headers
 
 
 def test_dashboard_renders_safe_validation_errors(client: TestClient) -> None:

@@ -2,7 +2,7 @@ from html import escape
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.domain.models import (
@@ -185,6 +185,12 @@ async def analyze_csv_upload(
         invalid_rows=normalized.invalid_count,
     )
     return SafeJSONResponse(status_code=200, content=analysis.model_dump(mode="json"))
+
+
+@router.get("/dashboard", include_in_schema=False)
+async def dashboard_without_upload() -> RedirectResponse:
+    # Dashboard state is intentionally not persisted; a CSV POST is required.
+    return RedirectResponse(url="/", status_code=303)
 
 
 @router.post("/dashboard", response_class=HTMLResponse)
