@@ -5,7 +5,22 @@ from app.domain.models import BusinessInsight, InsightType
 
 DISPLAY_PRECISION = Decimal("0.01")
 PERCENT_VALUE_PATTERN = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?%")
-LONG_DECIMAL_PATTERN = re.compile(r"(?<![\w.])-?\d+\.\d{3,}(?![\w.])")
+AI_EVIDENCE_METRIC_PATTERN = re.compile(
+    r"^(?:(?P<label>.+?)\s+)?(?P<key>sales_share|[a-z][a-z0-9_]*_share|"
+    r"change_pct|[a-z][a-z0-9_]*_pct|percentage|unit_price|change_amount|"
+    r"amount|quantity|sales|share)\s+(?P<value>-?\d+(?:\.\d+)?)\.?$",
+    re.IGNORECASE,
+)
+AI_EVIDENCE_SALES_COMPARISON_PATTERN = re.compile(
+    r"^(?P<label>.+?)\s+sales\s+(?P<current>-?\d+(?:\.\d+)?)\s+"
+    r"versus\s+(?P<previous>-?\d+(?:\.\d+)?)\s+previously\.?$",
+    re.IGNORECASE,
+)
+AI_EVIDENCE_SEVERITY_PATTERN = re.compile(
+    r"^severity\s+(?P<value>[a-z][a-z_-]*)\.?$", re.IGNORECASE
+)
+AI_EVIDENCE_NUMBER_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?$")
+AI_EVIDENCE_KEY_VALUE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\s*=", re.IGNORECASE)
 EVIDENCE_LABELS = {
     "top_one_share": "Leading share",
     "top_three_share": "Top three share",
@@ -144,12 +159,49 @@ def format_insight_evidence(evidence: tuple[str, ...]) -> tuple[str, ...]:
 def format_ai_evidence(value: str) -> str:
     """Format numeric display tokens in untrusted AI evidence as plain text."""
     parts = [part.strip() for part in value.split(";") if part.strip()]
-    if parts and all("=" in part for part in parts):
+    if parts and all(AI_EVIDENCE_KEY_VALUE_PATTERN.match(part) for part in parts):
         return "; ".join(format_insight_evidence(tuple(parts)))
 
-    formatted = PERCENT_VALUE_PATTERN.sub(
-        lambda match: format_percentage(Decimal(match.group()[:-1])), value
-    )
-    return LONG_DECIMAL_PATTERN.sub(
-        lambda match: format_decimal(Decimal(match.group())), formatted
+    def format_known_pattern(text: str) -> str:
+        leading = text[: len(text) - len(text.lstrip())]
+        trailing = text[len(text.rstrip()) :]
+        candidate = text.strip()
+
+        comparison = AI_EVIDENCE_SALES_COMPARISON_PATTERN.fullmatch(candidate)
+        if comparison:
+            current = format_decimal(Decimal(comparison.group("current")))
+            previous = format_decimal(Decimal(comparison.group("previous")))
+            return (
+                f"{leading}{comparison.group('label')} sales {current} versus "
+                f"{previous} previously{trailing}"
+            )
+
+        metric = AI_EVIDENCE_METRIC_PATTERN.fullmatch(candidate)
+        if metric:
+            key = metric.group("key").lower()
+            number = Decimal(metric.group("value"))
+            formatted = (
+                format_percentage(number)
+                if "share" in key or "pct" in key or key == "percentage"
+                else format_decimal(number)
+            )
+            human_key = key.replace("_", " ")
+            label = f"{metric.group('label')} " if metric.group("label") else ""
+            return (
+                f"{leading}{label}{human_key.capitalize() if not label else human_key}: "
+                f"{formatted}{trailing}"
+            )
+
+        severity = AI_EVIDENCE_SEVERITY_PATTERN.fullmatch(candidate)
+        if severity:
+            return f"{leading}Severity: {severity.group('value')}{trailing}"
+
+        if AI_EVIDENCE_NUMBER_PATTERN.fullmatch(candidate):
+            return f"{leading}{format_decimal(Decimal(candidate))}{trailing}"
+        return text
+
+    segments = re.split(r"(;\s*)", value)
+    return "".join(
+        segment if index % 2 else format_known_pattern(segment)
+        for index, segment in enumerate(segments)
     )

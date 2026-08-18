@@ -12,6 +12,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.presentation.html_report_renderer import HtmlReportRenderer
+from app.ai.context_builder import build_ai_context
+from app.ai.fake_ai import FakeAiProvider
 from app.presentation.pdf_report_renderer import (
     MAX_PDF_REPORT_BYTES,
     PdfErrorCode,
@@ -91,6 +93,60 @@ def test_pdf_renderer_uses_the_same_formatted_evidence_html(
     assert captured["html"] == expected_html
     assert "Leading share: 30.44%" in captured["html"]
     assert raw_value not in captured["html"]
+
+
+def test_pdf_source_html_formats_ai_finding_and_recommendation_evidence(
+    monkeypatch,
+) -> None:
+    analysis, insights = _results()
+    ai = FakeAiProvider().generate(build_ai_context(analysis, insights))
+    finding = ai.key_findings[0].model_copy(
+        update={"evidence": "North sales_share 30.436348667284141"}
+    )
+    recommendation = ai.recommendations[0].model_copy(
+        update={
+            "evidence": (
+                "Desk Chair sales_share 27.606257075228980",
+                "Office sales 32750 versus 35150.00 previously",
+            )
+        }
+    )
+    report = build_business_report(
+        analysis,
+        insights,
+        ai=ai.model_copy(
+            update={
+                "key_findings": (finding,),
+                "recommendations": (recommendation,),
+            }
+        ),
+    )
+    actual_output = PdfReportRenderer().render_pdf(report)
+    captured: dict[str, str] = {}
+
+    class PdfDocument:
+        def write_pdf(self) -> bytes:
+            return b"%PDF-ai-evidence"
+
+    def capture_document(html: str) -> PdfDocument:
+        captured["html"] = html
+        return PdfDocument()
+
+    monkeypatch.setattr(
+        "app.presentation.pdf_report_renderer._create_pdf_document",
+        capture_document,
+    )
+
+    output = PdfReportRenderer().render_pdf(report)
+
+    assert actual_output.startswith(b"%PDF-")
+    assert len(actual_output) < MAX_PDF_REPORT_BYTES
+    assert output.startswith(b"%PDF-")
+    assert "North sales share: 30.44%" in captured["html"]
+    assert "Desk Chair sales share: 27.61%" in captured["html"]
+    assert "Office sales 32,750 versus 35,150 previously" in captured["html"]
+    assert "30.436348667284141" not in captured["html"]
+    assert "27.606257075228980" not in captured["html"]
 
 
 def test_external_url_fetcher_rejects_every_scheme_without_disclosure() -> None:

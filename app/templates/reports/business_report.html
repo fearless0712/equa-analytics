@@ -91,7 +91,7 @@
     <div class="section-title"><span class="section-number">08</span><h2>AI Analysis</h2></div>
     {% if report.ai_status.value == "included" and report.ai %}
       <h3>Executive Interpretation</h3><p>{{ report.ai.executive_summary }}</p>
-      <h3>Key Findings</h3><ul class="insight-list">{% for finding in report.ai.key_findings %}<li><span class="severity">{{ finding.importance.value }}</span><h3>{{ finding.title }}</h3><p>{{ finding.observation }}</p><p><strong>Evidence:</strong> {{ finding.evidence }}</p></li>{% else %}<li>No AI findings were provided.</li>{% endfor %}</ul>
+      <h3>Key Findings</h3><ul class="insight-list">{% for finding in report.ai.key_findings %}<li><span class="severity">{{ finding.importance.value }}</span><h3>{{ finding.title }}</h3><p>{{ finding.observation }}</p><p><strong>Evidence:</strong> {{ finding.evidence | ai_evidence }}</p></li>{% else %}<li>No AI findings were provided.</li>{% endfor %}</ul>
       {% if report.ai.risks_or_watchpoints %}<h3>Risks and Watchpoints</h3><ul>{% for item in report.ai.risks_or_watchpoints %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
       {% if report.ai.recommended_checks %}<h3>Recommended Checks</h3><ul>{% for item in report.ai.recommended_checks %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
       {% if report.ai.data_quality_note %}<h3>Data Quality Note</h3><p>{{ report.ai.data_quality_note }}</p>{% endif %}

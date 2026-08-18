@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from app.presentation.formatters import (
+    format_ai_evidence,
     format_decimal,
     format_insight_evidence,
     format_integer,
@@ -9,6 +10,41 @@ from app.presentation.formatters import (
     format_signed_number,
     format_signed_percentage,
 )
+
+
+def test_ai_evidence_formats_known_metrics_and_comparisons() -> None:
+    assert (
+        format_ai_evidence("North sales_share 30.436348667284141")
+        == "North sales share: 30.44%"
+    )
+    assert (
+        format_ai_evidence("Desk Chair sales_share 27.606257075228980")
+        == "Desk Chair sales share: 27.61%"
+    )
+    assert (
+        format_ai_evidence("Office sales 32750 versus 35150.00 previously")
+        == "Office sales 32,750 versus 35,150 previously"
+    )
+    assert format_ai_evidence("Office sales 20520.00") == "Office sales: 20,520"
+    assert format_ai_evidence("quantity 11340.00") == "Quantity: 11,340"
+
+
+def test_ai_evidence_formats_semicolon_parts_and_preserves_unknown_text() -> None:
+    evidence = (
+        "High sales concentration by region; "
+        "North sales_share 30.436348667284141; severity warning."
+    )
+    assert format_ai_evidence(evidence) == (
+        "High sales concentration by region; "
+        "North sales share: 30.44%; Severity: warning"
+    )
+    unknown = "Review value 30.436348667284141 only after source validation."
+    assert format_ai_evidence(unknown) == unknown
+
+
+def test_ai_evidence_returns_malicious_input_as_plain_text() -> None:
+    attack = '</div><script>alert(1)</script> "><img src=x onerror=alert(1)>'
+    assert format_ai_evidence(attack) == attack
 
 
 def test_decimal_display_formats_large_and_fractional_values() -> None:

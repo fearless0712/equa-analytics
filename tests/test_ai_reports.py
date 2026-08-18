@@ -216,18 +216,27 @@ def test_ai_report_escapes_ai_output_and_formats_evidence(monkeypatch) -> None:
     class UntrustedProvider:
         def generate(self, context):
             response = fake.generate(context)
+            finding = response.key_findings[0].model_copy(
+                update={
+                    "evidence": (
+                        "High sales concentration by region; North sales_share "
+                        "30.436348667284141; severity warning."
+                    )
+                }
+            )
             recommendation = response.recommendations[0].model_copy(
                 update={
                     "title": attack,
                     "evidence": (
-                        "share=30.436346867284",
-                        "Calculated ratio 0.952380952380952380",
+                        "Desk Chair sales_share 27.606257075228980",
+                        "Office sales 32750 versus 35150.00 previously",
                     ),
                 }
             )
             return response.model_copy(
                 update={
                     "executive_summary": attack,
+                    "key_findings": (finding,),
                     "recommendations": (recommendation,),
                 }
             )
@@ -244,10 +253,11 @@ def test_ai_report_escapes_ai_output_and_formats_evidence(monkeypatch) -> None:
     assert response.status_code == 200
     assert attack not in response.text
     assert "&lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in response.text
-    assert "Share: 30.44%" in response.text
-    assert "Calculated ratio 0.95" in response.text
-    assert "30.436346867284" not in response.text
-    assert "0.952380952380952380" not in response.text
+    assert "North sales share: 30.44%" in response.text
+    assert "Desk Chair sales share: 27.61%" in response.text
+    assert "Office sales 32,750 versus 35,150 previously" in response.text
+    assert "30.436348667284141" not in response.text
+    assert "27.606257075228980" not in response.text
     assert "SECRET_FILENAME" not in response.text
     assert response.text.lower().count("<script") == 0
 
