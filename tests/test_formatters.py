@@ -26,6 +26,10 @@ def test_ai_evidence_formats_known_metrics_and_comparisons() -> None:
         == "North sales share: 30.44%"
     )
     assert (
+        format_ai_evidence("North sales_share 30.436348667284...")
+        == "North sales share: 30.44%"
+    )
+    assert (
         format_ai_evidence(
             "North sales_share is reported as 30.436348667284141"
         )

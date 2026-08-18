@@ -10,7 +10,7 @@ AI_EVIDENCE_METRIC_PATTERN = re.compile(
     r"change_pct|[a-z][a-z0-9_]*_pct|percentage|unit_price|change_amount|"
     r"amount|quantity|sales|share)\s+"
     r"(?:(?:is|was)(?:\s+reported\s+as)?\s+)?"
-    r"(?P<value>-?\d+(?:\.\d+)?)\.?$",
+    r"(?P<value>-?\d+(?:\.\d+)?)(?:\.\.\.|\.?)$",
     re.IGNORECASE,
 )
 AI_EVIDENCE_SALES_COMPARISON_PATTERN = re.compile(

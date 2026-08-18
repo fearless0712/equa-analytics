@@ -113,8 +113,7 @@ def test_pdf_source_html_formats_ai_finding_and_recommendation_evidence(
     recommendation = ai.recommendations[0].model_copy(
         update={
             "evidence": (
-                "dimensions.products[Desk Chair].sales_share "
-                "27.606257075228980...",
+                "Desk Chair sales_share 27.606257075228980...",
                 "Office sales 32750 versus 35150.00 previously",
             )
         }
