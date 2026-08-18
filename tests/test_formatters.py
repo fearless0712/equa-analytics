@@ -29,6 +29,22 @@ def test_ai_evidence_formats_known_metrics_and_comparisons() -> None:
     assert format_ai_evidence("quantity 11340.00") == "Quantity: 11,340"
 
 
+def test_ai_evidence_formats_bounded_context_path_values() -> None:
+    assert format_ai_evidence(
+        "monthly[2026-04].sales_change_pct = "
+        "-12.514370175726720315322713089"
+    ) == "Sales change: -12.51%"
+    assert format_ai_evidence(
+        "regions[North].sales_share = 30.436348667284141195842338170217"
+    ) == "North sales share: 30.44%"
+    assert format_ai_evidence(
+        "categories[Office].sales_change_amount = -2400.00"
+    ) == "Office sales change amount: -2,400"
+    assert format_ai_evidence(
+        "products[Desk Chair].current_value = 27.606257075228980"
+    ) == "Desk Chair current value: 27.61"
+
+
 def test_ai_evidence_formats_semicolon_parts_and_preserves_unknown_text() -> None:
     evidence = (
         "High sales concentration by region; "

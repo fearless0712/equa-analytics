@@ -219,8 +219,10 @@ def test_ai_report_escapes_ai_output_and_formats_evidence(monkeypatch) -> None:
             finding = response.key_findings[0].model_copy(
                 update={
                     "evidence": (
-                        "High sales concentration by region; North sales_share "
-                        "30.436348667284141; severity warning."
+                        "monthly[2026-04].sales_change_pct = "
+                        "-12.514370175726720315322713089; "
+                        "regions[North].sales_share = "
+                        "30.436348667284141195842338170217; severity warning."
                     )
                 }
             )
@@ -253,10 +255,12 @@ def test_ai_report_escapes_ai_output_and_formats_evidence(monkeypatch) -> None:
     assert response.status_code == 200
     assert attack not in response.text
     assert "&lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in response.text
+    assert "Sales change: -12.51%" in response.text
     assert "North sales share: 30.44%" in response.text
     assert "Desk Chair sales share: 27.61%" in response.text
     assert "Office sales 32,750 versus 35,150 previously" in response.text
-    assert "30.436348667284141" not in response.text
+    assert "30.436348667284141195842338170217" not in response.text
+    assert "-12.514370175726720315322713089" not in response.text
     assert "27.606257075228980" not in response.text
     assert "SECRET_FILENAME" not in response.text
     assert response.text.lower().count("<script") == 0

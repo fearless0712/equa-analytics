@@ -21,6 +21,14 @@ AI_EVIDENCE_SEVERITY_PATTERN = re.compile(
 )
 AI_EVIDENCE_NUMBER_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?$")
 AI_EVIDENCE_KEY_VALUE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\s*=", re.IGNORECASE)
+AI_EVIDENCE_PATH_PATTERN = re.compile(
+    r"^(?P<collection>monthly|products|categories|regions)"
+    r"\[(?P<label>[^\]\r\n]{1,240})\]\."
+    r"(?P<key>sales_change_pct|sales_share|current_value|previous_value|"
+    r"sales_change_amount|change_amount|sales|quantity|unit_price)"
+    r"\s*=\s*(?P<value>-?\d+(?:\.\d+)?)\.?$",
+    re.IGNORECASE,
+)
 EVIDENCE_LABELS = {
     "top_one_share": "Leading share",
     "top_three_share": "Top three share",
@@ -166,6 +174,26 @@ def format_ai_evidence(value: str) -> str:
         leading = text[: len(text) - len(text.lstrip())]
         trailing = text[len(text.rstrip()) :]
         candidate = text.strip()
+
+        path_value = AI_EVIDENCE_PATH_PATTERN.fullmatch(candidate)
+        if path_value:
+            collection = path_value.group("collection").lower()
+            key = path_value.group("key").lower()
+            number = Decimal(path_value.group("value"))
+            if "share" in key:
+                formatted = format_percentage(number)
+            elif "pct" in key:
+                formatted = format_signed_percentage(number)
+            elif "change_amount" in key:
+                formatted = format_signed_number(number)
+            else:
+                formatted = format_decimal(number)
+            human_key = key.replace("_pct", "").replace("_", " ")
+            label = "" if collection == "monthly" else f"{path_value.group('label')} "
+            return (
+                f"{leading}{label}{human_key.capitalize() if not label else human_key}: "
+                f"{formatted}{trailing}"
+            )
 
         comparison = AI_EVIDENCE_SALES_COMPARISON_PATTERN.fullmatch(candidate)
         if comparison:
