@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from app.presentation.formatters import (
     format_decimal,
+    format_insight_evidence,
     format_integer,
     format_percentage,
     format_ratio,
@@ -36,3 +37,51 @@ def test_ratio_and_signed_business_formats() -> None:
     assert format_signed_number(Decimal("-7620")) == "-7,620"
     assert format_signed_number(Decimal("0")) == "0"
     assert format_signed_number(None) == "N/A"
+
+
+def test_report_evidence_formats_percentages_amounts_and_bounds() -> None:
+    evidence = format_insight_evidence(
+        (
+            "top_one_share=30.436348667284141195842338170",
+            "top_three_share=81.85139446331172172481218483",
+            "significant_change_pct=10.0000",
+            "minimum_total_sales_share_pct=5.0000",
+            "lower_bound=-4.000",
+            "upper_bound=28237.500",
+            "change_amount=2737.500",
+            "change_pct=-6.827123",
+        )
+    )
+
+    assert evidence == (
+        "Leading share: 30.44%",
+        "Top three share: 81.85%",
+        "Significant change threshold: 10.00%",
+        "Minimum total sales share: 5.00%",
+        "Lower bound: -4",
+        "Upper bound: 28,237.50",
+        "Change amount: +2,737.50",
+        "Change percentage: -6.83%",
+    )
+
+
+def test_report_evidence_formats_boolean_none_and_unknown_values() -> None:
+    evidence = format_insight_evidence(
+        (
+            "significant=true",
+            "reviewed=false",
+            "top_one_share=None",
+            "custom_value=1234.567",
+            "note=<script>alert(1)</script>",
+            "Plain evidence",
+        )
+    )
+
+    assert evidence == (
+        "Significant: true",
+        "Reviewed: false",
+        "Leading share: N/A",
+        "Custom Value: 1,234.57",
+        "Note: <script>alert(1)</script>",
+        "Plain evidence",
+    )

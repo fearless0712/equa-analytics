@@ -38,7 +38,7 @@ def test_renderer_builds_self_contained_printable_report() -> None:
         "05</span><h2>Category Performance",
         "06</span><h2>Regional Performance",
         "07</span><h2>Detected Insights",
-        "08</span><h2>AI Interpretation",
+        "08</span><h2>AI Analysis",
         "09</span><h2>Recommended Actions",
         "10</span><h2>Data Quality &amp; Methodology",
     ):
@@ -70,6 +70,49 @@ def test_renderer_uses_presentation_formatters_and_comparison_fallback() -> None
     assert "N/A" in html
 
 
+def test_renderer_formats_deterministic_evidence_without_losing_precision() -> None:
+    report = _report()
+    raw_one = "30.436348667284141195842338170"
+    raw_three = "81.85139446331172172481218483"
+    source = report.insights.business[0]
+    concentration = source.model_copy(
+        update={
+            "id": "presentation-concentration",
+            "evidence": (
+                f"top_one_share={raw_one}",
+                f"top_three_share={raw_three}",
+                "significant=true",
+                "optional=None",
+            ),
+        }
+    )
+    outlier = source.model_copy(
+        update={
+            "id": "presentation-outlier",
+            "evidence": ("lower_bound=-4.000", "upper_bound=28237.500"),
+        }
+    )
+    report = report.model_copy(
+        update={
+            "insights": report.insights.model_copy(
+                update={"business": (concentration,), "outliers": (outlier,)}
+            )
+        }
+    )
+
+    html = HtmlReportRenderer().render(report)
+
+    assert "Leading share: 30.44%" in html
+    assert "Top three share: 81.85%" in html
+    assert "Significant: true" in html
+    assert "Optional: N/A" in html
+    assert "Lower bound: -4" in html
+    assert "Upper bound: 28,237.50" in html
+    assert raw_one not in html
+    assert raw_three not in html
+    assert '<div class="evidence"><strong>Evidence</strong><ul>' in html
+
+
 def test_renderer_has_explicit_ai_states_and_includes_existing_ai() -> None:
     plain = HtmlReportRenderer().render(_report())
     unavailable = HtmlReportRenderer().render(_report(ai_unavailable=True))
@@ -86,7 +129,7 @@ def test_renderer_escapes_aggregates_insights_and_ai_text() -> None:
     attack = "</style><script>alert(1)</script>"
     product = report.top_products[0].model_copy(update={"name": attack})
     insight = report.insights.business[0].model_copy(
-        update={"title": attack, "summary": attack}
+        update={"title": attack, "summary": attack, "evidence": (f"note={attack}",)}
     )
     finding = report.ai.key_findings[0].model_copy(
         update={"title": attack, "observation": attack, "evidence": attack}
@@ -105,7 +148,20 @@ def test_renderer_escapes_aggregates_insights_and_ai_text() -> None:
 
     assert attack not in html
     assert "&lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "Note: &lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert html.lower().count("<script") == 0
+
+
+def test_report_print_css_ends_on_white_page_without_empty_footer_block() -> None:
+    css = Path("app/static/css/report.css").read_text()
+    template = Path("app/templates/reports/business_report.html").read_text()
+
+    assert "@page { size: A4; margin: 14mm; background: #fff; }" in css
+    assert ":root, html, body { background: #fff; }" in css
+    assert ".report-footer { background: #fff; padding-bottom: 0; }" in css
+    assert "</footer>\n</main>" in template
+    assert "min-height" not in css
+    assert "::after" not in css
 
 
 def test_report_download_route_returns_safe_attachment(client: TestClient) -> None:

@@ -83,14 +83,14 @@
   <section class="report-section">
     <div class="section-title"><span class="section-number">07</span><h2>Detected Insights</h2></div>
     {% for title, items in [("Business Signals", report.insights.business), ("Data Quality Signals", report.insights.quality), ("Potential Outliers", report.insights.outliers)] %}
-    <h3>{{ title }}</h3><ul class="insight-list">{% for item in items %}<li><span class="severity">{{ item.severity.value }}</span><h3>{{ item.title }}</h3><p>{{ item | insight_summary }}</p>{% if item.change_amount is not none %}<p>Change: {{ item.change_amount | signed_number }} / {{ item.change_pct | signed_percentage }}</p>{% endif %}{% if item.evidence %}<p><strong>Evidence:</strong> {{ item.evidence | join("; ") }}</p>{% endif %}{% if item.type.value == "potential_outlier" %}<p class="muted">Review candidate only; this does not establish fraud or error.</p>{% endif %}</li>{% else %}<li class="muted">No {{ title | lower }} detected.</li>{% endfor %}</ul>
+    <h3>{{ title }}</h3><ul class="insight-list">{% for item in items %}<li><span class="severity">{{ item.severity.value }}</span><h3>{{ item.title }}</h3><p>{{ item | insight_summary }}</p>{% if item.change_amount is not none %}<p>Change: {{ item.change_amount | signed_number }} / {{ item.change_pct | signed_percentage }}</p>{% endif %}{% if item.evidence %}<div class="evidence"><strong>Evidence</strong><ul>{% for evidence in item.evidence | insight_evidence %}<li>{{ evidence }}</li>{% endfor %}</ul></div>{% endif %}{% if item.type.value == "potential_outlier" %}<p class="muted">Review candidate only; this does not establish fraud or error.</p>{% endif %}</li>{% else %}<li class="muted">No {{ title | lower }} detected.</li>{% endfor %}</ul>
     {% endfor %}
   </section>
 
   <section class="report-section">
-    <div class="section-title"><span class="section-number">08</span><h2>AI Interpretation</h2></div>
+    <div class="section-title"><span class="section-number">08</span><h2>AI Analysis</h2></div>
     {% if report.ai_status.value == "included" and report.ai %}
-      <p>{{ report.ai.executive_summary }}</p>
+      <h3>Executive Interpretation</h3><p>{{ report.ai.executive_summary }}</p>
       <h3>Key Findings</h3><ul class="insight-list">{% for finding in report.ai.key_findings %}<li><span class="severity">{{ finding.importance.value }}</span><h3>{{ finding.title }}</h3><p>{{ finding.observation }}</p><p><strong>Evidence:</strong> {{ finding.evidence }}</p></li>{% else %}<li>No AI findings were provided.</li>{% endfor %}</ul>
       {% if report.ai.risks_or_watchpoints %}<h3>Risks and Watchpoints</h3><ul>{% for item in report.ai.risks_or_watchpoints %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
       {% if report.ai.recommended_checks %}<h3>Recommended Checks</h3><ul>{% for item in report.ai.recommended_checks %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
@@ -102,7 +102,7 @@
 
   <section class="report-section">
     <div class="section-title"><span class="section-number">09</span><h2>Recommended Actions</h2></div>
-    {% if report.ai_status.value == "included" and report.ai %}<ol class="action-list">{% for item in report.ai.recommendations %}<li><span class="priority">{{ item.priority.value }}</span><h3>{{ item.title }}</h3><p><strong>Why:</strong> {{ item.rationale }}</p><p><strong>Action:</strong> {{ item.action }}</p><p><strong>Evidence:</strong> {{ item.evidence | join("; ") }}</p>{% if item.related_metric %}<p><strong>Related Metric:</strong> {{ item.related_metric }}</p>{% endif %}{% if item.related_dimension %}<p><strong>Related Dimension:</strong> {{ item.related_dimension }}</p>{% endif %}{% if item.caution %}<p><strong>Caution:</strong> {{ item.caution }}</p>{% endif %}</li>{% else %}<li>No evidence-backed actions were provided.</li>{% endfor %}</ol>
+    {% if report.ai_status.value == "included" and report.ai %}<ol class="action-list">{% for item in report.ai.recommendations %}<li><span class="priority">{{ item.priority.value }}</span><h3>{{ item.title }}</h3><p><strong>Why:</strong> {{ item.rationale }}</p><p><strong>Action:</strong> {{ item.action }}</p><div class="evidence"><strong>Evidence</strong><ul>{% for evidence in item.evidence %}<li>{{ evidence | ai_evidence }}</li>{% endfor %}</ul></div>{% if item.related_metric %}<p><strong>Related Metric:</strong> {{ item.related_metric }}</p>{% endif %}{% if item.related_dimension %}<p><strong>Related Dimension:</strong> {{ item.related_dimension }}</p>{% endif %}{% if item.caution %}<p><strong>Caution:</strong> {{ item.caution }}</p>{% endif %}</li>{% else %}<li>No evidence-backed actions were provided.</li>{% endfor %}</ol>
     {% else %}<p class="fallback">No AI recommendations are included. Review the deterministic insights above before deciding on actions.</p>{% endif %}
   </section>
 

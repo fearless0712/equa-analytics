@@ -353,6 +353,170 @@ def _log_pdf_event(
     pdf_diagnostic_logger.info(json.dumps(payload, separators=(",", ":")))
 
 
+def _generate_optional_report_ai(request: Request, analysis, insights):
+    """Generate at most one bounded AI response, falling back without disclosure."""
+    client_host = request.client.host if request.client else "unknown"
+    if not request.app.state.ai_rate_limiter.allow(client_host):
+        return None, True
+    try:
+        provider = build_ai_provider(request.app.state.settings)
+        return provider.generate(build_ai_context(analysis, insights)), False
+    except Exception:
+        return None, True
+
+
+def _html_report_response(report) -> Response:
+    try:
+        content = html_report_renderer.render_bytes(report)
+    except HtmlReportTooLargeError:
+        return SafeJSONResponse(
+            status_code=413,
+            content={"detail": "HTML report exceeds the safe size limit."},
+        )
+    report_date = report.metadata.generated_at.date().isoformat()
+    return Response(
+        content=content,
+        media_type="text/html",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="equa-analytics-report-{report_date}.html"'
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/reports/html/ai")
+async def download_ai_html_report(
+    request: Request,
+    _: None = Depends(require_csrf),
+    file: UploadFile = File(...),
+) -> Response:
+    loaded = await _load_csv_upload(request, file)
+    if isinstance(loaded, CsvValidationSummary):
+        return SafeJSONResponse(
+            status_code=_summary_status(loaded),
+            content=loaded.model_dump(mode="json"),
+        )
+    summary, normalized = _summary_for_result(loaded)
+    if not summary.is_valid or normalized is None:
+        return SafeJSONResponse(
+            status_code=_summary_status(summary),
+            content=summary.model_dump(mode="json"),
+        )
+
+    analysis = analyze_rows(
+        normalized.valid_rows,
+        total_rows=normalized.total_rows,
+        invalid_rows=normalized.invalid_count,
+    )
+    insights = detect_insights(analysis, normalized.valid_rows)
+    ai, ai_unavailable = _generate_optional_report_ai(request, analysis, insights)
+    report = build_business_report(
+        analysis, insights, ai=ai, ai_unavailable=ai_unavailable
+    )
+    return _html_report_response(report)
+
+
+@router.post("/reports/pdf/ai")
+async def download_ai_pdf_report(
+    request: Request,
+    _: None = Depends(require_csrf),
+    file: UploadFile = File(...),
+) -> Response:
+    request_id = uuid4().hex
+    started_at = time.monotonic()
+    client_host = request.client.host if request.client else "unknown"
+    if not request.app.state.pdf_rate_limiter.allow(client_host):
+        await file.close()
+        return _pdf_error_response(PdfErrorCode.RATE_LIMITED)
+
+    loaded = await _load_csv_upload(request, file)
+    if isinstance(loaded, CsvValidationSummary):
+        return SafeJSONResponse(
+            status_code=_summary_status(loaded),
+            content=loaded.model_dump(mode="json"),
+        )
+    summary, normalized = _summary_for_result(loaded)
+    if not summary.is_valid or normalized is None:
+        return SafeJSONResponse(
+            status_code=_summary_status(summary),
+            content=summary.model_dump(mode="json"),
+        )
+
+    try:
+        analysis = analyze_rows(
+            normalized.valid_rows,
+            total_rows=normalized.total_rows,
+            invalid_rows=normalized.invalid_count,
+        )
+        insights = detect_insights(analysis, normalized.valid_rows)
+        ai, ai_unavailable = _generate_optional_report_ai(
+            request, analysis, insights
+        )
+        report = build_business_report(
+            analysis, insights, ai=ai, ai_unavailable=ai_unavailable
+        )
+    except Exception:
+        _log_pdf_event(
+            "pdf_render_failed",
+            request_id,
+            started_at,
+            error_code=PdfErrorCode.RENDER_FAILED,
+        )
+        return _pdf_error_response(PdfErrorCode.RENDER_FAILED)
+
+    semaphore = request.app.state.pdf_semaphore
+    _log_pdf_event("pdf_slot_attempt", request_id, started_at)
+    try:
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=PDF_SLOT_TIMEOUT_SECONDS
+        )
+    except TimeoutError:
+        _log_pdf_event(
+            "pdf_slot_busy", request_id, started_at, error_code=PdfErrorCode.BUSY
+        )
+        return _pdf_error_response(PdfErrorCode.BUSY)
+    _log_pdf_event("pdf_slot_acquired", request_id, started_at)
+    try:
+        _log_pdf_event("pdf_render_start", request_id, started_at)
+        try:
+            content = await run_in_threadpool(pdf_report_renderer.render_pdf, report)
+        except PdfReportError as exc:
+            _log_pdf_event(
+                "pdf_render_failed", request_id, started_at, error_code=exc.code
+            )
+            return _pdf_error_response(exc.code)
+        _log_pdf_event(
+            "pdf_render_success", request_id, started_at, byte_size=len(content)
+        )
+    except Exception:
+        _log_pdf_event(
+            "pdf_render_failed",
+            request_id,
+            started_at,
+            error_code=PdfErrorCode.RENDER_FAILED,
+        )
+        return _pdf_error_response(PdfErrorCode.RENDER_FAILED)
+    finally:
+        semaphore.release()
+        _log_pdf_event("pdf_slot_released", request_id, started_at)
+
+    report_date = report.metadata.generated_at.date().isoformat()
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="equa-analytics-ai-report-{report_date}.pdf"'
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 @router.post("/reports/pdf")
 async def download_pdf_report(
     request: Request,

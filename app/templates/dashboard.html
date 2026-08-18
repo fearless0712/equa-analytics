@@ -141,6 +141,18 @@
       <input id="pdf-report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
       <button class="primary-button" type="submit" data-pdf-submit><span data-pdf-label>Download PDF Report</span></button>
     </form>
+    <form action="/reports/html/ai" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="ai-report-csv-file">Select the same CSV to include optional AI analysis</label>
+      <input id="ai-report-csv-file" name="file" type="file" accept=".csv,text/csv" required {% if ai_mode == 'disabled' %}disabled{% endif %}>
+      <button class="primary-button" type="submit" {% if ai_mode == 'disabled' %}disabled{% endif %}>{{ "AI Report unavailable" if ai_mode == "disabled" else "Download AI HTML Report" }}</button>
+    </form>
+    <form action="/reports/pdf/ai" method="post" enctype="multipart/form-data" data-pdf-form aria-busy="false">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="ai-pdf-report-csv-file">Select the same CSV to include optional AI analysis in PDF</label>
+      <input id="ai-pdf-report-csv-file" name="file" type="file" accept=".csv,text/csv" required {% if ai_mode == 'disabled' %}disabled{% endif %}>
+      <button class="primary-button" type="submit" data-pdf-submit {% if ai_mode == 'disabled' %}disabled{% endif %}><span data-pdf-label>{{ "AI Report unavailable" if ai_mode == "disabled" else "Download AI PDF Report" }}</span></button>
+    </form>
   </section>
 </div>
 {% endblock %}

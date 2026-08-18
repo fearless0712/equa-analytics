@@ -55,6 +55,44 @@ def test_pdf_renderer_generates_nonempty_pdf_from_five_svg_report() -> None:
     assert report.ai is None
 
 
+def test_pdf_renderer_uses_the_same_formatted_evidence_html(
+    monkeypatch,
+) -> None:
+    report = _report()
+    raw_value = "30.436348667284141195842338170"
+    insight = report.insights.business[0].model_copy(
+        update={"evidence": (f"top_one_share={raw_value}",)}
+    )
+    report = report.model_copy(
+        update={
+            "insights": report.insights.model_copy(update={"business": (insight,)})
+        }
+    )
+    html_renderer = HtmlReportRenderer()
+    expected_html = html_renderer.render(report)
+    captured: dict[str, str] = {}
+
+    class PdfDocument:
+        def write_pdf(self) -> bytes:
+            return b"%PDF-test"
+
+    def capture_document(html: str) -> PdfDocument:
+        captured["html"] = html
+        return PdfDocument()
+
+    monkeypatch.setattr(
+        "app.presentation.pdf_report_renderer._create_pdf_document",
+        capture_document,
+    )
+
+    output = PdfReportRenderer(html_renderer).render_pdf(report)
+
+    assert output == b"%PDF-test"
+    assert captured["html"] == expected_html
+    assert "Leading share: 30.44%" in captured["html"]
+    assert raw_value not in captured["html"]
+
+
 def test_external_url_fetcher_rejects_every_scheme_without_disclosure() -> None:
     for url in (
         "https://example.invalid/resource",

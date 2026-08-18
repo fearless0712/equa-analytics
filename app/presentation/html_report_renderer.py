@@ -4,7 +4,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.domain.report_models import BusinessReport
 from app.presentation.formatters import (
+    format_ai_evidence,
     format_decimal,
+    format_insight_evidence,
     format_insight_summary,
     format_integer,
     format_percentage,
@@ -29,7 +31,9 @@ class HtmlReportRenderer:
             autoescape=select_autoescape(("html", "xml")),
         )
         self._environment.filters.update(
+            ai_evidence=format_ai_evidence,
             decimal=format_decimal,
+            insight_evidence=format_insight_evidence,
             insight_summary=format_insight_summary,
             integer=format_integer,
             percentage=format_percentage,
