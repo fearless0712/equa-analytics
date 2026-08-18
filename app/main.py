@@ -26,7 +26,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     csrf_secret = app_settings.secret_key.get_secret_value().strip() or secrets.token_urlsafe(32)
     application.state.csrf = CsrfProtector(csrf_secret)
     application.state.ai_rate_limiter = InMemoryRateLimiter(limit=3, window_seconds=600)
-    application.state.pdf_rate_limiter = InMemoryRateLimiter(limit=2, window_seconds=600)
+    application.state.pdf_rate_limiter = InMemoryRateLimiter(limit=5, window_seconds=600)
     application.state.pdf_semaphore = asyncio.Semaphore(1)
     application.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
     application.include_router(router)

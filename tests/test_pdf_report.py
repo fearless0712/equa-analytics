@@ -169,7 +169,7 @@ def test_pdf_route_hides_renderer_exception(client: TestClient, monkeypatch) -> 
     assert "Traceback" not in response.text
 
 
-def test_pdf_route_has_dedicated_two_request_rate_limit(client: TestClient, monkeypatch) -> None:
+def test_pdf_route_has_dedicated_five_request_rate_limit(client: TestClient, monkeypatch) -> None:
     monkeypatch.setattr(
         "app.web.routes.pdf_report_renderer.render_pdf", lambda report: b"%PDF-test"
     )
@@ -177,10 +177,15 @@ def test_pdf_route_has_dedicated_two_request_rate_limit(client: TestClient, monk
         client.post(
             "/reports/pdf", files={"file": ("sales.csv", SAMPLE, "text/csv")}
         ).status_code
-        for _ in range(3)
+        for _ in range(6)
     ]
 
-    assert statuses == [200, 200, 429]
+    assert statuses == [200, 200, 200, 200, 200, 429]
+    response = client.post(
+        "/reports/pdf", files={"file": ("sales.csv", SAMPLE, "text/csv")}
+    )
+    assert response.status_code == 429
+    assert response.json()["code"] == "PDF_RATE_LIMITED"
 
 
 def test_pdf_route_rejects_concurrent_generation_as_busy(

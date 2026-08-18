@@ -87,7 +87,7 @@ deployment. Multiple workers or instances require a shared store such as Redis.
 Reports are generated from deterministic analytics without requiring AI. Both
 self-contained HTML and PDF exports are processed in memory and are never
 persistently stored. PDF generation uses WeasyPrint and permits one concurrent
-render per process, with a separate limit of two requests per ten minutes per
+render per process, with a separate limit of five requests per ten minutes per
 direct client IP. These controls assume a single-worker deployment.
 
 PDF rendering can be CPU- and memory-intensive on Render Free instances. The
