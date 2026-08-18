@@ -24,11 +24,11 @@ AI_EVIDENCE_SEVERITY_PATTERN = re.compile(
 AI_EVIDENCE_NUMBER_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?$")
 AI_EVIDENCE_KEY_VALUE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\s*=", re.IGNORECASE)
 AI_EVIDENCE_PATH_PATTERN = re.compile(
-    r"^(?P<collection>monthly|products|categories|regions)"
+    r"^(?:dimensions\.)?(?P<collection>monthly|products|categories|regions)"
     r"\[(?P<label>[^\]\r\n]{1,240})\]\."
     r"(?P<key>sales_change_pct|sales_share|current_value|previous_value|"
     r"sales_change_amount|change_amount|sales|quantity|unit_price)"
-    r"\s*=\s*(?P<value>-?\d+(?:\.\d+)?)\.?$",
+    r"(?:\s*=\s*|\s+)(?P<value>-?\d+(?:\.\d+)?)(?:\.\.\.|\.?)$",
     re.IGNORECASE,
 )
 EVIDENCE_LABELS = {

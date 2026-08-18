@@ -230,8 +230,8 @@ def test_ai_report_escapes_ai_output_and_formats_evidence(monkeypatch) -> None:
                 update={
                     "title": attack,
                     "evidence": (
-                        "Desk Chair sales_share is reported as "
-                        "27.606257075228980",
+                        "dimensions.products[Desk Chair].sales_share "
+                        "27.606257075228980...",
                         "Office sales 32750 versus 35150.00 previously",
                     ),
                 }

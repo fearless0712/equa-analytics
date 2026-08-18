@@ -53,6 +53,13 @@ def test_ai_evidence_formats_bounded_context_path_values() -> None:
     assert format_ai_evidence(
         "products[Desk Chair].current_value = 27.606257075228980"
     ) == "Desk Chair current value: 27.61"
+    assert format_ai_evidence(
+        "dimensions.regions[North].sales_share "
+        "30.436348667284141195842338..."
+    ) == "North sales share: 30.44%"
+    assert format_ai_evidence(
+        "dimensions.products[Desk Chair].sales_share 27.606257075228980..."
+    ) == "Desk Chair sales share: 27.61%"
 
 
 def test_ai_evidence_formats_semicolon_parts_and_preserves_unknown_text() -> None:
