@@ -126,5 +126,21 @@
       <button class="primary-button" type="submit" data-ai-submit {% if ai_mode == 'disabled' %}disabled{% endif %}><span data-ai-label>{{ "AI unavailable" if ai_mode == "disabled" else "Generate AI Insights" }}</span></button>
     </form>
   </section>
+
+  <section class="section-block" aria-labelledby="report-title">
+    <div class="section-heading"><div><p class="section-index">09</p><h2 id="report-title">Business Report</h2></div><p>Download a self-contained HTML report from the same validated CSV.</p></div>
+    <form action="/reports/html" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="report-csv-file">Select the same CSV to build the report</label>
+      <input id="report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
+      <button class="primary-button" type="submit">Download HTML Report</button>
+    </form>
+    <form action="/reports/pdf" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="pdf-report-csv-file">Select the same CSV to build the PDF report</label>
+      <input id="pdf-report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
+      <button class="primary-button" type="submit">Download PDF Report</button>
+    </form>
+  </section>
 </div>
 {% endblock %}

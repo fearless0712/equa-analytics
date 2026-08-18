@@ -19,6 +19,7 @@ dependencies = [
   "python-dotenv>=1.0,<2.0",
   "python-multipart>=0.0.20,<1.0",
   "uvicorn[standard]>=0.34,<1.0",
+  "weasyprint>=62,<69",
 ]
 
 [project.optional-dependencies]

@@ -39,7 +39,7 @@ def test_ai_disabled_is_safe_and_dashboard_remains_visible() -> None:
 
 def test_all_post_routes_reject_missing_or_invalid_csrf() -> None:
     with TestClient(create_app(Settings(environment=Environment.TEST))) as client:
-        for path in ("/csv/validate", "/csv/analyze", "/dashboard", "/ai/insights"):
+        for path in ("/csv/validate", "/csv/analyze", "/dashboard", "/ai/insights", "/reports/html", "/reports/pdf"):
             response = client.post(path, files={"file": ("sales.csv", SAMPLE, "text/csv")})
             assert response.status_code == 403
         client.get("/")

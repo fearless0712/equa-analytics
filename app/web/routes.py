@@ -2,8 +2,9 @@ from html import escape
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from app.domain.models import (
     CsvNormalizationResult,
@@ -21,6 +22,7 @@ from app.services.analyzer import analyze_rows
 from app.services.csv_reader import read_csv_bytes
 from app.services.normalizer import normalize_csv_result
 from app.services.insight_detector import detect_insights
+from app.services.report_builder import build_business_report
 from app.web.responses import SafeJSONResponse
 from app.web.upload_adapter import read_bounded_upload
 from app.presentation.charts import build_dashboard_charts
@@ -32,9 +34,20 @@ from app.presentation.formatters import (
     format_signed_number,
     format_signed_percentage,
 )
+from app.presentation.html_report_renderer import (
+    HtmlReportRenderer,
+    HtmlReportTooLargeError,
+)
+from app.presentation.pdf_report_renderer import (
+    PdfErrorCode,
+    PdfReportError,
+    PdfReportRenderer,
+)
 from app.security.csrf import CSRF_COOKIE_NAME, require_csrf, set_csrf_cookie
 
 router = APIRouter()
+html_report_renderer = HtmlReportRenderer()
+pdf_report_renderer = PdfReportRenderer(html_report_renderer)
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
 templates.env.filters.update(
     decimal=format_decimal,
@@ -239,6 +252,130 @@ async def render_dashboard(
             "insights": insights,
             "csrf_token": csrf_token,
             "ai_mode": request.app.state.settings.ai_mode.value,
+        },
+    )
+
+
+@router.post("/reports/html")
+async def download_html_report(
+    request: Request,
+    _: None = Depends(require_csrf),
+    file: UploadFile = File(...),
+) -> Response:
+    loaded = await _load_csv_upload(request, file)
+    if isinstance(loaded, CsvValidationSummary):
+        return SafeJSONResponse(
+            status_code=_summary_status(loaded),
+            content=loaded.model_dump(mode="json"),
+        )
+    summary, normalized = _summary_for_result(loaded)
+    if not summary.is_valid or normalized is None:
+        return SafeJSONResponse(
+            status_code=_summary_status(summary),
+            content=summary.model_dump(mode="json"),
+        )
+
+    analysis = analyze_rows(
+        normalized.valid_rows,
+        total_rows=normalized.total_rows,
+        invalid_rows=normalized.invalid_count,
+    )
+    insights = detect_insights(analysis, normalized.valid_rows)
+    report = build_business_report(analysis, insights)
+    try:
+        content = html_report_renderer.render_bytes(report)
+    except HtmlReportTooLargeError:
+        return SafeJSONResponse(
+            status_code=413,
+            content={"detail": "HTML report exceeds the safe size limit."},
+        )
+
+    report_date = report.metadata.generated_at.date().isoformat()
+    return Response(
+        content=content,
+        media_type="text/html",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="equa-analytics-report-{report_date}.html"'
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+def _pdf_error_response(code: PdfErrorCode) -> SafeJSONResponse:
+    statuses = {
+        PdfErrorCode.RENDER_FAILED: 500,
+        PdfErrorCode.TOO_LARGE: 413,
+        PdfErrorCode.BUSY: 503,
+        PdfErrorCode.RATE_LIMITED: 429,
+    }
+    messages = {
+        PdfErrorCode.RENDER_FAILED: "PDF report generation failed.",
+        PdfErrorCode.TOO_LARGE: "PDF report exceeds the safe size limit.",
+        PdfErrorCode.BUSY: "PDF report generation is currently busy.",
+        PdfErrorCode.RATE_LIMITED: "PDF report generation rate limit exceeded.",
+    }
+    return SafeJSONResponse(
+        status_code=statuses[code],
+        content={"code": code.value, "message": messages[code]},
+    )
+
+
+@router.post("/reports/pdf")
+async def download_pdf_report(
+    request: Request,
+    _: None = Depends(require_csrf),
+    file: UploadFile = File(...),
+) -> Response:
+    client_host = request.client.host if request.client else "unknown"
+    if not request.app.state.pdf_rate_limiter.allow(client_host):
+        await file.close()
+        return _pdf_error_response(PdfErrorCode.RATE_LIMITED)
+
+    loaded = await _load_csv_upload(request, file)
+    if isinstance(loaded, CsvValidationSummary):
+        return SafeJSONResponse(
+            status_code=_summary_status(loaded),
+            content=loaded.model_dump(mode="json"),
+        )
+    summary, normalized = _summary_for_result(loaded)
+    if not summary.is_valid or normalized is None:
+        return SafeJSONResponse(
+            status_code=_summary_status(summary),
+            content=summary.model_dump(mode="json"),
+        )
+
+    semaphore = request.app.state.pdf_semaphore
+    if semaphore.locked():
+        return _pdf_error_response(PdfErrorCode.BUSY)
+    await semaphore.acquire()
+    try:
+        analysis = analyze_rows(
+            normalized.valid_rows,
+            total_rows=normalized.total_rows,
+            invalid_rows=normalized.invalid_count,
+        )
+        insights = detect_insights(analysis, normalized.valid_rows)
+        report = build_business_report(analysis, insights)
+        try:
+            content = await run_in_threadpool(pdf_report_renderer.render_pdf, report)
+        except PdfReportError as exc:
+            return _pdf_error_response(exc.code)
+    finally:
+        semaphore.release()
+
+    report_date = report.metadata.generated_at.date().isoformat()
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="equa-analytics-report-{report_date}.pdf"'
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
         },
     )
 

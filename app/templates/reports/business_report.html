@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EQUA Analytics Business Performance Report</title>
+  <style>/*__EQUA_REPORT_CSS__*/</style>
+</head>
+<body>
+<main class="report">
+  <header class="report-header">
+    <p class="brand">EQUA ANALYTICS</p>
+    <h1>Business Performance Report</h1>
+    <div class="report-meta">
+      <span>Period: {{ report.metadata.date_from or "N/A" }} to {{ report.metadata.date_to or "N/A" }}</span>
+      <span>Generated: {{ report.metadata.generated_at.strftime("%Y-%m-%d %H:%M %Z") }}</span>
+      <span>Currency: N/A</span>
+    </div>
+  </header>
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">01</span><h2>Executive Summary</h2></div>
+    <p class="headline">{{ report.executive_summary.headline }}</p>
+    <ul>{% for observation in report.executive_summary.observations %}<li>{{ observation }}</li>{% endfor %}</ul>
+    <dl class="summary-grid">
+      <div><dt>Total Sales</dt><dd>{{ report.executive_summary.total_sales | decimal }}</dd></div>
+      <div><dt>Latest Month</dt><dd>{{ report.executive_summary.latest_month or "N/A" }}</dd></div>
+      <div><dt>Latest Trend</dt><dd>{{ report.executive_summary.latest_trend.value | replace("_", " ") | title }}</dd></div>
+      <div><dt>Leading Product</dt><dd>{{ report.executive_summary.leading_product or "N/A" }}</dd></div>
+      <div><dt>Leading Category</dt><dd>{{ report.executive_summary.leading_category or "N/A" }}</dd></div>
+      <div><dt>Leading Region</dt><dd>{{ report.executive_summary.leading_region or "N/A" }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">02</span><h2>Key Performance Indicators</h2></div>
+    <dl class="kpi-grid">
+      <div><dt>Total Sales</dt><dd>{{ report.kpis.total_sales | decimal }}</dd></div>
+      <div><dt>Total Quantity</dt><dd>{{ report.kpis.total_quantity | integer }}</dd></div>
+      <div><dt>Transactions</dt><dd>{{ report.kpis.transaction_count | integer }}</dd></div>
+      <div><dt>Average Order Value</dt><dd>{{ report.kpis.average_order_value | decimal }}</dd></div>
+      <div><dt>Average Unit Price</dt><dd>{{ report.kpis.average_unit_price | decimal }}</dd></div>
+      <div><dt>Products</dt><dd>{{ report.kpis.unique_products | integer }}</dd></div>
+      <div><dt>Categories</dt><dd>{{ report.kpis.unique_categories | integer }}</dd></div>
+      <div><dt>Regions</dt><dd>{{ report.kpis.unique_regions | integer }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">03</span><h2>Monthly Performance</h2></div>
+    <div class="report-chart">{{ charts.monthly_sales.svg }}</div>
+    <div class="report-chart">{{ charts.monthly_quantity.svg }}</div>
+    <div class="table-wrap"><table><thead><tr><th>Month</th><th>Sales</th><th>Quantity</th><th>Transactions</th><th>Change Amount</th><th>Change %</th><th>Source Status</th></tr></thead><tbody>
+      {% set state = namespace(first=true, previous_imputed=false) %}
+      {% for item in report.monthly %}
+      {% set comparable = not state.first and not state.previous_imputed %}
+      <tr><th scope="row">{{ item.year_month }}</th><td>{{ item.sales | decimal }}</td><td>{{ item.quantity | integer }}</td><td>{{ item.transaction_count | integer }}</td><td>{{ (item.sales_change if comparable else none) | signed_number }}</td><td>{{ (item.sales_change_pct if comparable else none) | signed_percentage }}</td><td>{{ "No source rows / imputed zero" if item.is_imputed else "Source rows" }}</td></tr>
+      {% set state.first = false %}{% set state.previous_imputed = item.is_imputed %}
+      {% else %}<tr><td colspan="7">No monthly performance available.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+
+  {% for number, title, items, label in [("04", "Product Performance", report.top_products, "Product"), ("05", "Category Performance", report.top_categories, "Category"), ("06", "Regional Performance", report.top_regions, "Region")] %}
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">{{ number }}</span><h2>{{ title }}</h2></div>
+    {% if number == "04" %}<div class="report-chart">{{ charts.top_products.svg }}</div>{% endif %}
+    {% if number == "05" %}<div class="report-chart">{{ charts.categories.svg }}</div>{% endif %}
+    {% if number == "06" %}<div class="report-chart">{{ charts.regions.svg }}</div>{% endif %}
+    <div class="table-wrap"><table><thead><tr><th>{{ label }}</th><th>Rank</th><th>Sales</th><th>Quantity</th><th>Transactions</th><th>Share</th></tr></thead><tbody>
+      {% for item in items %}<tr><th scope="row">{{ item.name }}</th><td>{{ item.rank | integer }}</td><td>{{ item.sales | decimal }}</td><td>{{ item.quantity | integer }}</td><td>{{ item.transaction_count | integer }}</td><td>{{ item.sales_share | percentage }}</td></tr>{% else %}<tr><td colspan="6">No {{ label | lower }} performance available.</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if number == "05" %}
+    <h3>Category Movement</h3>
+    <div class="table-wrap"><table><thead><tr><th>Movement</th><th>Category</th><th>Previous</th><th>Current</th><th>Change</th><th>Change %</th></tr></thead><tbody>
+      {% for movement, item in [("Largest growth", report.largest_category_growth), ("Largest decline", report.largest_category_decline)] %}
+      <tr><th scope="row">{{ movement }}</th>{% if item %}<td>{{ item.name }}</td><td>{{ item.previous_sales | decimal }}</td><td>{{ item.current_sales | decimal }}</td><td>{{ item.change_amount | signed_number }}</td><td>{{ item.change_pct | signed_percentage }}</td>{% else %}<td colspan="5">N/A</td>{% endif %}</tr>
+      {% endfor %}
+    </tbody></table></div>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">07</span><h2>Detected Insights</h2></div>
+    {% for title, items in [("Business Signals", report.insights.business), ("Data Quality Signals", report.insights.quality), ("Potential Outliers", report.insights.outliers)] %}
+    <h3>{{ title }}</h3><ul class="insight-list">{% for item in items %}<li><span class="severity">{{ item.severity.value }}</span><h3>{{ item.title }}</h3><p>{{ item | insight_summary }}</p>{% if item.change_amount is not none %}<p>Change: {{ item.change_amount | signed_number }} / {{ item.change_pct | signed_percentage }}</p>{% endif %}{% if item.evidence %}<p><strong>Evidence:</strong> {{ item.evidence | join("; ") }}</p>{% endif %}{% if item.type.value == "potential_outlier" %}<p class="muted">Review candidate only; this does not establish fraud or error.</p>{% endif %}</li>{% else %}<li class="muted">No {{ title | lower }} detected.</li>{% endfor %}</ul>
+    {% endfor %}
+  </section>
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">08</span><h2>AI Interpretation</h2></div>
+    {% if report.ai_status.value == "included" and report.ai %}
+      <p>{{ report.ai.executive_summary }}</p>
+      <h3>Key Findings</h3><ul class="insight-list">{% for finding in report.ai.key_findings %}<li><span class="severity">{{ finding.importance.value }}</span><h3>{{ finding.title }}</h3><p>{{ finding.observation }}</p><p><strong>Evidence:</strong> {{ finding.evidence }}</p></li>{% else %}<li>No AI findings were provided.</li>{% endfor %}</ul>
+      {% if report.ai.risks_or_watchpoints %}<h3>Risks and Watchpoints</h3><ul>{% for item in report.ai.risks_or_watchpoints %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% if report.ai.recommended_checks %}<h3>Recommended Checks</h3><ul>{% for item in report.ai.recommended_checks %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% if report.ai.data_quality_note %}<h3>Data Quality Note</h3><p>{{ report.ai.data_quality_note }}</p>{% endif %}
+      {% if report.ai.optional_next_questions %}<h3>Next Questions</h3><ul>{% for item in report.ai.optional_next_questions %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+    {% elif report.ai_status.value == "unavailable" %}<p class="fallback">AI interpretation was unavailable. All deterministic analysis remains complete.</p>
+    {% else %}<p class="fallback">AI interpretation was not requested. This report is based entirely on deterministic analysis.</p>{% endif %}
+  </section>
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">09</span><h2>Recommended Actions</h2></div>
+    {% if report.ai_status.value == "included" and report.ai %}<ol class="action-list">{% for item in report.ai.recommendations %}<li><span class="priority">{{ item.priority.value }}</span><h3>{{ item.title }}</h3><p><strong>Why:</strong> {{ item.rationale }}</p><p><strong>Action:</strong> {{ item.action }}</p><p><strong>Evidence:</strong> {{ item.evidence | join("; ") }}</p>{% if item.related_metric %}<p><strong>Related Metric:</strong> {{ item.related_metric }}</p>{% endif %}{% if item.related_dimension %}<p><strong>Related Dimension:</strong> {{ item.related_dimension }}</p>{% endif %}{% if item.caution %}<p><strong>Caution:</strong> {{ item.caution }}</p>{% endif %}</li>{% else %}<li>No evidence-backed actions were provided.</li>{% endfor %}</ol>
+    {% else %}<p class="fallback">No AI recommendations are included. Review the deterministic insights above before deciding on actions.</p>{% endif %}
+  </section>
+
+  <section class="report-section">
+    <div class="section-title"><span class="section-number">10</span><h2>Data Quality &amp; Methodology</h2></div>
+    <dl class="quality-grid">
+      <div><dt>Total Rows</dt><dd>{{ report.quality.total_rows | integer }}</dd></div><div><dt>Analyzed Rows</dt><dd>{{ report.quality.valid_rows | integer }}</dd></div>
+      <div><dt>Invalid Rows</dt><dd>{{ report.quality.invalid_rows | integer }}</dd></div><div><dt>Duplicate Rows</dt><dd>{{ report.quality.duplicate_rows | integer }}</dd></div>
+      <div><dt>Missing Optional Values</dt><dd>{{ report.quality.missing_optional_values | integer }}</dd></div><div><dt>Date Range</dt><dd>{{ report.metadata.date_from or "N/A" }} to {{ report.metadata.date_to or "N/A" }}</dd></div>
+      <div><dt>Observed Months</dt><dd>{{ report.metadata.observed_months | integer }}</dd></div>
+      <div><dt>Imputed Months</dt><dd>{{ report.metadata.imputed_months | integer }}</dd></div><div><dt>Potential Outliers</dt><dd>{{ report.metadata.potential_outliers | integer }}</dd></div>
+    </dl>
+    <h3>Methodology</h3><ul class="methodology"><li>Sales formula: {{ report.methodology.sales_formula }}</li><li>{{ report.methodology.currency_note }}</li><li>{{ report.methodology.decimal_note }}</li><li>{{ report.methodology.missing_month_note }}</li><li>{{ report.methodology.duplicate_note }}</li><li>{{ report.methodology.outlier_note }}</li><li>{{ report.methodology.ai_note }}</li></ul>
+  </section>
+  <footer class="report-footer">Generated by EQUA Analytics. This report contains aggregated analysis and does not include raw CSV rows.</footer>
+</main>
+</body>
+</html>

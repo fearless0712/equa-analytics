@@ -15,6 +15,7 @@ release. Use only fictional or non-confidential data during development.
 - Five interactive Plotly charts with supporting accessible tables
 - Deterministic change, concentration, quality, and potential-outlier detection
 - Optional, button-triggered AI interpretation with a deterministic Fake mode
+- Self-contained HTML and PDF business report exports with five static SVG charts
 
 ## Processing Flow
 
@@ -81,10 +82,22 @@ still apply independently of `store=False`.
 The rate limiter is in-memory and suitable only for the Phase 1 single-worker
 deployment. Multiple workers or instances require a shared store such as Redis.
 
+## Report Exports
+
+Reports are generated from deterministic analytics without requiring AI. Both
+self-contained HTML and PDF exports are processed in memory and are never
+persistently stored. PDF generation uses WeasyPrint and permits one concurrent
+render per process, with a separate limit of two requests per ten minutes per
+direct client IP. These controls assume a single-worker deployment.
+
+PDF rendering can be CPU- and memory-intensive on Render Free instances. The
+current Phase 1 limits report contents and enforces a 5 MB generated PDF cap.
+
 ## Tech Stack
 
-Python 3.12, FastAPI, Pydantic Settings, pandas, Plotly, Jinja2, OpenAI Python SDK,
-pytest, and Uvicorn. Phase 1 has no database, authentication, or file persistence.
+Python 3.12, FastAPI, Pydantic Settings, pandas, Plotly, Jinja2, WeasyPrint,
+OpenAI Python SDK, pytest, and Uvicorn. Phase 1 has no database, authentication,
+or file persistence.
 
 ## Testing
 
