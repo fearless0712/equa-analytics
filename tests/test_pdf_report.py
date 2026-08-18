@@ -113,7 +113,8 @@ def test_pdf_source_html_formats_ai_finding_and_recommendation_evidence(
     recommendation = ai.recommendations[0].model_copy(
         update={
             "evidence": (
-                "Desk Chair sales_share 27.606257075228980...",
+                "Desk Chair is reported as a leading product with sales_share "
+                "of 27.606257075228980...",
                 "Office sales 32750 versus 35150.00 previously",
             )
         }
@@ -151,7 +152,10 @@ def test_pdf_source_html_formats_ai_finding_and_recommendation_evidence(
     assert output.startswith(b"%PDF-")
     assert "Sales change: -12.51%" in captured["html"]
     assert "North sales share: 30.44%" in captured["html"]
-    assert "Desk Chair sales share: 27.61%" in captured["html"]
+    assert (
+        "Desk Chair is reported as a leading product with sales share: 27.61%"
+        in captured["html"]
+    )
     assert "Office sales 32,750 versus 35,150 previously" in captured["html"]
     assert "30.436348667284141195842338170217" not in captured["html"]
     assert "-12.514370175726720315322713089" not in captured["html"]

@@ -79,6 +79,16 @@ def test_ai_evidence_formats_semicolon_parts_and_preserves_unknown_text() -> Non
     assert format_ai_evidence(unknown) == unknown
 
 
+def test_ai_evidence_formats_known_metric_inside_natural_sentence() -> None:
+    evidence = (
+        "North is reported as the leading region with sales_share of "
+        "30.436348667284141195842338170217"
+    )
+    assert format_ai_evidence(evidence) == (
+        "North is reported as the leading region with sales share: 30.44%"
+    )
+
+
 def test_ai_evidence_returns_malicious_input_as_plain_text() -> None:
     attack = '</div><script>alert(1)</script> "><img src=x onerror=alert(1)>'
     assert format_ai_evidence(attack) == attack

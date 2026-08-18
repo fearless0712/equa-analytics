@@ -23,6 +23,13 @@ AI_EVIDENCE_SEVERITY_PATTERN = re.compile(
 )
 AI_EVIDENCE_NUMBER_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?$")
 AI_EVIDENCE_KEY_VALUE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\s*=", re.IGNORECASE)
+AI_EVIDENCE_INLINE_METRIC_PATTERN = re.compile(
+    r"(?P<key>sales_share|[a-z][a-z0-9_]*_share|change_pct|"
+    r"[a-z][a-z0-9_]*_pct|percentage|unit_price|change_amount|amount|"
+    r"quantity|sales|share)\s+(?:of\s+|(?:is|was)(?:\s+reported\s+as)?\s+|=\s*)"
+    r"(?P<value>-?\d+(?:\.\d+)?)(?:\.\.\.|\.?)",
+    re.IGNORECASE,
+)
 AI_EVIDENCE_PATH_PATTERN = re.compile(
     r"^(?:dimensions\.)?(?P<collection>monthly|products|categories|regions)"
     r"\[(?P<label>[^\]\r\n]{1,240})\]\."
@@ -228,7 +235,19 @@ def format_ai_evidence(value: str) -> str:
 
         if AI_EVIDENCE_NUMBER_PATTERN.fullmatch(candidate):
             return f"{leading}{format_decimal(Decimal(candidate))}{trailing}"
-        return text
+
+        def replace_inline_metric(match: re.Match[str]) -> str:
+            key = match.group("key").lower()
+            number = Decimal(match.group("value"))
+            if "share" in key or "pct" in key or key == "percentage":
+                formatted = format_percentage(number)
+            elif "change_amount" in key:
+                formatted = format_signed_number(number)
+            else:
+                formatted = format_decimal(number)
+            return f"{key.replace('_', ' ')}: {formatted}"
+
+        return AI_EVIDENCE_INLINE_METRIC_PATTERN.sub(replace_inline_metric, text)
 
     segments = re.split(r"(;\s*)", value)
     return "".join(
