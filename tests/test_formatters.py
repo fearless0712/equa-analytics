@@ -87,6 +87,14 @@ def test_ai_evidence_formats_known_metric_inside_natural_sentence() -> None:
     assert format_ai_evidence(evidence) == (
         "North is reported as the leading region with sales share: 30.44%"
     )
+    assert format_ai_evidence(
+        "detected_insights.business[1]: North sales_share="
+        "30.436348667284141195842338170217"
+    ) == "detected_insights.business[1]: North sales share: 30.44%"
+    assert format_ai_evidence(
+        "dimension_value=North, current_value="
+        "30.436348667284141195842338170217, severity=warning"
+    ) == "dimension_value=North, current value: 30.44, Severity: warning"
 
 
 def test_ai_evidence_returns_malicious_input_as_plain_text() -> None:

@@ -26,7 +26,8 @@ AI_EVIDENCE_KEY_VALUE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\s*=", re.IGNORECAS
 AI_EVIDENCE_INLINE_METRIC_PATTERN = re.compile(
     r"(?P<key>sales_share|[a-z][a-z0-9_]*_share|change_pct|"
     r"[a-z][a-z0-9_]*_pct|percentage|unit_price|change_amount|amount|"
-    r"quantity|sales|share)\s+(?:of\s+|(?:is|was)(?:\s+reported\s+as)?\s+|=\s*)"
+    r"current_value|previous_value|quantity|sales|share)\s*"
+    r"(?:of\s+|(?:is|was)(?:\s+reported\s+as)?\s+|=\s*)"
     r"(?P<value>-?\d+(?:\.\d+)?)(?:\.\.\.|\.?)",
     re.IGNORECASE,
 )
@@ -37,6 +38,9 @@ AI_EVIDENCE_PATH_PATTERN = re.compile(
     r"sales_change_amount|change_amount|sales|quantity|unit_price)"
     r"(?:\s*=\s*|\s+)(?P<value>-?\d+(?:\.\d+)?)(?:\.\.\.|\.?)$",
     re.IGNORECASE,
+)
+AI_EVIDENCE_INLINE_SEVERITY_PATTERN = re.compile(
+    r"severity\s*=\s*(?P<value>[a-z][a-z_-]*)", re.IGNORECASE
 )
 EVIDENCE_LABELS = {
     "top_one_share": "Leading share",
@@ -176,7 +180,11 @@ def format_insight_evidence(evidence: tuple[str, ...]) -> tuple[str, ...]:
 def format_ai_evidence(value: str) -> str:
     """Format numeric display tokens in untrusted AI evidence as plain text."""
     parts = [part.strip() for part in value.split(";") if part.strip()]
-    if parts and all(AI_EVIDENCE_KEY_VALUE_PATTERN.match(part) for part in parts):
+    if parts and all(
+        AI_EVIDENCE_KEY_VALUE_PATTERN.match(part)
+        and "," not in part.partition("=")[2]
+        for part in parts
+    ):
         return "; ".join(format_insight_evidence(tuple(parts)))
 
     def format_known_pattern(text: str) -> str:
@@ -247,7 +255,12 @@ def format_ai_evidence(value: str) -> str:
                 formatted = format_decimal(number)
             return f"{key.replace('_', ' ')}: {formatted}"
 
-        return AI_EVIDENCE_INLINE_METRIC_PATTERN.sub(replace_inline_metric, text)
+        formatted = AI_EVIDENCE_INLINE_METRIC_PATTERN.sub(
+            replace_inline_metric, text
+        )
+        return AI_EVIDENCE_INLINE_SEVERITY_PATTERN.sub(
+            lambda match: f"Severity: {match.group('value')}", formatted
+        )
 
     segments = re.split(r"(;\s*)", value)
     return "".join(
