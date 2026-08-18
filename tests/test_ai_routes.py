@@ -22,6 +22,9 @@ def test_ai_fake_route_reruns_pipeline_and_renders_result() -> None:
         response = client.post("/ai/insights", files={"file": ("sales.csv", SAMPLE, "text/csv")})
     assert response.status_code == 200
     assert "Executive Summary" in response.text
+    assert "Recommended Actions" in response.text
+    assert "Next Questions" in response.text
+    assert "priority-high" in response.text or "priority-medium" in response.text
     assert "Generate AI Insights" in response.text
     assert "Traceback" not in response.text
 
@@ -67,6 +70,25 @@ def test_ai_ui_has_loading_and_double_submit_protection(client: TestClient) -> N
     assert "Generating..." in script.text
     assert 'form.dataset.submitting === "true"' in script.text
     assert "innerHTML" not in script.text
+
+
+def test_ai_recommendation_output_is_escaped(client: TestClient) -> None:
+    xss = "<script>alert(1)</script>"
+    data = (
+        b"date,product,category,region,quantity,unit_price\n"
+        + f"2026-01-01,{xss},Office,North,10,100\n".encode()
+        + b"2026-01-02,Beta,Home,South,1,10\n"
+        + b"2026-01-03,Gamma,Lifestyle,West,1,10\n"
+    )
+    with _client(AiMode.FAKE) as fake_client:
+        response = fake_client.post(
+            "/ai/insights",
+            files={"file": ("sales.csv", data, "text/csv")},
+        )
+
+    assert response.status_code == 200
+    assert xss not in response.text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.text
 
 
 def test_security_headers_include_no_store_permissions_and_production_hsts() -> None:

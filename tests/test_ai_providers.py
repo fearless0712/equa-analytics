@@ -54,7 +54,7 @@ def test_openai_adapter_uses_responses_structured_output_and_store_false() -> No
     assert result == expected
     assert call["model"] == "test-model"
     assert call["store"] is False
-    assert call["max_output_tokens"] == 1_200
+    assert call["max_output_tokens"] == 1_800
     assert call["text_format"] is AiInsightResponse
 
 

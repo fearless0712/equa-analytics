@@ -95,6 +95,20 @@ tbody tr:last-child > * { border-bottom: 0; }
 .ai-results section, .ai-error { border-left: 3px solid #49c5b6; padding-left: 16px; }
 .ai-results ul { display: grid; gap: 12px; padding-left: 20px; }
 .ai-results .severity-label { margin-left: 10px; }
+.recommendations > ol { margin: 0; padding: 0; list-style: none; }
+.recommendation { margin-top: 14px; padding: 16px; border: 1px solid #303942; background: #111519; }
+.recommendation.priority-high { border-left: 3px solid #ff6b6b; }
+.recommendation.priority-medium { border-left: 3px solid #f2b84b; }
+.recommendation.priority-low { border-left: 3px solid #72a8ff; }
+.recommendation-heading { display: flex; gap: 10px; align-items: flex-start; }
+.recommendation-heading h4 { margin: 1px 0 0; font-size: 0.94rem; }
+.priority-label { flex: 0 0 auto; padding: 3px 6px; border: 1px solid currentColor; color: #cbd4dd; font-size: 0.62rem; font-weight: 750; text-transform: uppercase; }
+.recommendation dl { margin: 14px 0; display: grid; gap: 10px; }
+.recommendation dl div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; }
+.recommendation dt { color: #8f9aa6; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+.recommendation dd { margin: 0; overflow-wrap: anywhere; color: #c7d0d9; font-size: 0.8rem; line-height: 1.55; }
+.recommendation h5 { margin: 0 0 8px; font-size: 0.76rem; }
+.recommendation-caution { margin-top: 12px; color: #8f9aa6; font-size: 0.74rem; }
 .insight-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .insight-groups h3 { margin: 0 0 12px; font-size: 0.9rem; }
 .insight-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }

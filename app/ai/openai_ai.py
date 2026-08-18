@@ -25,7 +25,7 @@ class OpenAiProvider:
                 ],
                 text_format=AiInsightResponse,
                 store=False,
-                max_output_tokens=1_200,
+                max_output_tokens=1_800,
             )
         except openai.APITimeoutError as exc:
             raise AiServiceError(AiErrorCode.TIMEOUT) from exc
