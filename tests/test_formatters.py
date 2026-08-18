@@ -22,6 +22,16 @@ def test_ai_evidence_formats_known_metrics_and_comparisons() -> None:
         == "Desk Chair sales share: 27.61%"
     )
     assert (
+        format_ai_evidence("North sales_share is 30.436348667284141")
+        == "North sales share: 30.44%"
+    )
+    assert (
+        format_ai_evidence(
+            "North sales_share is reported as 30.436348667284141"
+        )
+        == "North sales share: 30.44%"
+    )
+    assert (
         format_ai_evidence("Office sales 32750 versus 35150.00 previously")
         == "Office sales 32,750 versus 35,150 previously"
     )
