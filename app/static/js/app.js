@@ -35,4 +35,34 @@ document.querySelectorAll("[data-upload-form]").forEach((form) => {
 
 window.addEventListener("pageshow", () => {
   document.querySelectorAll("[data-upload-form]").forEach(resetUploadForm);
+  document.querySelectorAll("[data-pdf-form]").forEach(resetPdfForm);
+});
+
+function resetPdfForm(form) {
+  const button = form.querySelector("[data-pdf-submit]");
+  const label = form.querySelector("[data-pdf-label]");
+  form.dataset.submitting = "false";
+  form.setAttribute("aria-busy", "false");
+  if (button) button.disabled = false;
+  if (label) label.textContent = "Download PDF Report";
+}
+
+document.querySelectorAll("[data-pdf-form]").forEach((form) => {
+  const button = form.querySelector("[data-pdf-submit]");
+  const label = form.querySelector("[data-pdf-label]");
+  let resetTimer;
+
+  resetPdfForm(form);
+  form.addEventListener("submit", (event) => {
+    if (form.dataset.submitting === "true") {
+      event.preventDefault();
+      return;
+    }
+    form.dataset.submitting = "true";
+    form.setAttribute("aria-busy", "true");
+    if (button) button.disabled = true;
+    if (label) label.textContent = "Generating PDF...";
+    window.clearTimeout(resetTimer);
+    resetTimer = window.setTimeout(() => resetPdfForm(form), 10000);
+  });
 });

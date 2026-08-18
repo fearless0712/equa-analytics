@@ -135,11 +135,11 @@
       <input id="report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
       <button class="primary-button" type="submit">Download HTML Report</button>
     </form>
-    <form action="/reports/pdf" method="post" enctype="multipart/form-data">
+    <form action="/reports/pdf" method="post" enctype="multipart/form-data" data-pdf-form aria-busy="false">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label for="pdf-report-csv-file">Select the same CSV to build the PDF report</label>
       <input id="pdf-report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
-      <button class="primary-button" type="submit">Download PDF Report</button>
+      <button class="primary-button" type="submit" data-pdf-submit><span data-pdf-label>Download PDF Report</span></button>
     </form>
   </section>
 </div>

@@ -1,5 +1,11 @@
+import asyncio
 from html import escape
+import json
+import logging
+import os
 from pathlib import Path
+import time
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -46,6 +52,9 @@ from app.presentation.pdf_report_renderer import (
 from app.security.csrf import CSRF_COOKIE_NAME, require_csrf, set_csrf_cookie
 
 router = APIRouter()
+PDF_DIAGNOSTIC_LOGGER_NAME = "uvicorn.error.equa_analytics.pdf"
+pdf_diagnostic_logger = logging.getLogger(PDF_DIAGNOSTIC_LOGGER_NAME)
+PDF_SLOT_TIMEOUT_SECONDS = 2.0
 html_report_renderer = HtmlReportRenderer()
 pdf_report_renderer = PdfReportRenderer(html_report_renderer)
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
@@ -323,12 +332,35 @@ def _pdf_error_response(code: PdfErrorCode) -> SafeJSONResponse:
     )
 
 
+def _log_pdf_event(
+    event: str,
+    request_id: str,
+    started_at: float,
+    *,
+    error_code: PdfErrorCode | None = None,
+    byte_size: int | None = None,
+) -> None:
+    payload: dict[str, str | int] = {
+        "event": event,
+        "request_id": request_id,
+        "process_id": os.getpid(),
+        "elapsed_ms": round((time.monotonic() - started_at) * 1000),
+    }
+    if error_code is not None:
+        payload["error_code"] = error_code.value
+    if byte_size is not None:
+        payload["pdf_bytes"] = byte_size
+    pdf_diagnostic_logger.info(json.dumps(payload, separators=(",", ":")))
+
+
 @router.post("/reports/pdf")
 async def download_pdf_report(
     request: Request,
     _: None = Depends(require_csrf),
     file: UploadFile = File(...),
 ) -> Response:
+    request_id = uuid4().hex
+    started_at = time.monotonic()
     client_host = request.client.host if request.client else "unknown"
     if not request.app.state.pdf_rate_limiter.allow(client_host):
         await file.close()
@@ -348,9 +380,20 @@ async def download_pdf_report(
         )
 
     semaphore = request.app.state.pdf_semaphore
-    if semaphore.locked():
+    _log_pdf_event("pdf_slot_attempt", request_id, started_at)
+    try:
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=PDF_SLOT_TIMEOUT_SECONDS
+        )
+    except TimeoutError:
+        _log_pdf_event(
+            "pdf_slot_busy",
+            request_id,
+            started_at,
+            error_code=PdfErrorCode.BUSY,
+        )
         return _pdf_error_response(PdfErrorCode.BUSY)
-    await semaphore.acquire()
+    _log_pdf_event("pdf_slot_acquired", request_id, started_at)
     try:
         analysis = analyze_rows(
             normalized.valid_rows,
@@ -359,12 +402,34 @@ async def download_pdf_report(
         )
         insights = detect_insights(analysis, normalized.valid_rows)
         report = build_business_report(analysis, insights)
+        _log_pdf_event("pdf_render_start", request_id, started_at)
         try:
             content = await run_in_threadpool(pdf_report_renderer.render_pdf, report)
         except PdfReportError as exc:
+            _log_pdf_event(
+                "pdf_render_failed",
+                request_id,
+                started_at,
+                error_code=exc.code,
+            )
             return _pdf_error_response(exc.code)
+        _log_pdf_event(
+            "pdf_render_success",
+            request_id,
+            started_at,
+            byte_size=len(content),
+        )
+    except Exception:
+        _log_pdf_event(
+            "pdf_render_failed",
+            request_id,
+            started_at,
+            error_code=PdfErrorCode.RENDER_FAILED,
+        )
+        return _pdf_error_response(PdfErrorCode.RENDER_FAILED)
     finally:
         semaphore.release()
+        _log_pdf_event("pdf_slot_released", request_id, started_at)
 
     report_date = report.metadata.generated_at.date().isoformat()
     return Response(

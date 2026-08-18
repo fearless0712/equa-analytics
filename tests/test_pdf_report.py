@@ -1,7 +1,12 @@
 import asyncio
 import csv
+import json
+import logging
 from io import StringIO
 from pathlib import Path
+from threading import Event, Lock
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +20,8 @@ from app.presentation.pdf_report_renderer import (
     reject_external_url,
 )
 from app.presentation.report_charts import build_report_charts
+from app.config import Environment, Settings
+from app.main import create_app
 from app.services.report_builder import build_business_report
 from tests.test_ai_context import _results
 
@@ -24,6 +31,14 @@ SAMPLE = Path("sample_data/valid_sales.csv").read_bytes()
 def _report():
     analysis, insights = _results()
     return build_business_report(analysis, insights)
+
+
+def test_pdf_semaphore_is_initialized_unlocked_during_lifespan() -> None:
+    application = create_app(Settings(environment=Environment.TEST))
+
+    assert not hasattr(application.state, "pdf_semaphore")
+    with TestClient(application):
+        assert application.state.pdf_semaphore.locked() is False
 
 
 def test_pdf_renderer_generates_nonempty_pdf_from_five_svg_report() -> None:
@@ -80,6 +95,7 @@ def test_pdf_renderer_enforces_generated_byte_limit(monkeypatch) -> None:
 
 
 def test_pdf_download_returns_safe_attachment(client: TestClient) -> None:
+    assert client.app.state.pdf_semaphore.locked() is False
     response = client.post(
         "/reports/pdf",
         files={"file": ("private-company-name.csv", SAMPLE, "text/csv")},
@@ -96,6 +112,7 @@ def test_pdf_download_returns_safe_attachment(client: TestClient) -> None:
     assert response.headers["x-content-type-options"] == "nosniff"
     assert b"private-company-name" not in response.content
     assert b"OPENAI_API_KEY" not in response.content
+    assert client.app.state.pdf_semaphore.locked() is False
 
 
 def test_pdf_route_rejects_invalid_csv_safely(client: TestClient) -> None:
@@ -150,6 +167,7 @@ def test_pdf_route_maps_size_failure_to_fixed_413(client: TestClient, monkeypatc
         "message": "PDF report exceeds the safe size limit.",
     }
     assert "Traceback" not in response.text
+    assert client.app.state.pdf_semaphore.locked() is False
 
 
 def test_pdf_route_hides_renderer_exception(client: TestClient, monkeypatch) -> None:
@@ -167,6 +185,24 @@ def test_pdf_route_hides_renderer_exception(client: TestClient, monkeypatch) -> 
         "message": "PDF report generation failed.",
     }
     assert "Traceback" not in response.text
+    assert client.app.state.pdf_semaphore.locked() is False
+
+
+def test_pdf_route_releases_slot_after_analysis_exception(
+    client: TestClient, monkeypatch
+) -> None:
+    def failed_analysis(*args, **kwargs):
+        raise RuntimeError("PRIVATE_ANALYSIS_EXCEPTION")
+
+    monkeypatch.setattr("app.web.routes.analyze_rows", failed_analysis)
+    response = client.post(
+        "/reports/pdf", files={"file": ("sales.csv", SAMPLE, "text/csv")}
+    )
+
+    assert response.status_code == 500
+    assert response.json()["code"] == "PDF_RENDER_FAILED"
+    assert "PRIVATE_ANALYSIS_EXCEPTION" not in response.text
+    assert client.app.state.pdf_semaphore.locked() is False
 
 
 def test_pdf_route_has_dedicated_five_request_rate_limit(client: TestClient, monkeypatch) -> None:
@@ -188,20 +224,74 @@ def test_pdf_route_has_dedicated_five_request_rate_limit(client: TestClient, mon
     assert response.json()["code"] == "PDF_RATE_LIMITED"
 
 
-def test_pdf_route_rejects_concurrent_generation_as_busy(
-    client: TestClient,
+def test_concurrent_pdf_requests_timeout_then_recover(
+    client: TestClient, monkeypatch
 ) -> None:
+    entered = Event()
+    allow_completion = Event()
+    active_lock = Lock()
+    active = 0
+    maximum_active = 0
+
+    def blocking_render(report):
+        nonlocal active, maximum_active
+        with active_lock:
+            active += 1
+            maximum_active = max(maximum_active, active)
+        entered.set()
+        assert allow_completion.wait(timeout=5)
+        with active_lock:
+            active -= 1
+        return b"%PDF-test"
+
+    monkeypatch.setattr(
+        "app.web.routes.pdf_report_renderer.render_pdf", blocking_render
+    )
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(
+            client.post,
+            "/reports/pdf",
+            files={"file": ("sales.csv", SAMPLE, "text/csv")},
+        )
+        assert entered.wait(timeout=3)
+        started = time.monotonic()
+        second = client.post(
+            "/reports/pdf", files={"file": ("sales.csv", SAMPLE, "text/csv")}
+        )
+        waited = time.monotonic() - started
+        allow_completion.set()
+        first_response = first.result(timeout=5)
+
+    assert first_response.status_code == 200
+    assert second.status_code == 503
+    assert second.json()["code"] == "PDF_BUSY"
+    assert waited >= 1.8
+    assert maximum_active == 1
+    third = client.post(
+        "/reports/pdf", files={"file": ("sales.csv", SAMPLE, "text/csv")}
+    )
+    assert third.status_code == 200
+    assert client.app.state.pdf_semaphore.locked() is False
+
+
+def test_busy_requests_continue_to_consume_pdf_rate_limit(
+    client: TestClient, monkeypatch
+) -> None:
+    monkeypatch.setattr("app.web.routes.PDF_SLOT_TIMEOUT_SECONDS", 0.01)
     semaphore = client.app.state.pdf_semaphore
     asyncio.run(semaphore.acquire())
     try:
-        response = client.post(
-            "/reports/pdf", files={"file": ("sales.csv", SAMPLE, "text/csv")}
-        )
+        statuses = [
+            client.post(
+                "/reports/pdf",
+                files={"file": ("sales.csv", SAMPLE, "text/csv")},
+            ).status_code
+            for _ in range(6)
+        ]
     finally:
         semaphore.release()
 
-    assert response.status_code == 503
-    assert response.json()["code"] == "PDF_BUSY"
+    assert statuses == [503, 503, 503, 503, 503, 429]
 
 
 def test_pdf_pipeline_escapes_xss_and_excludes_customer_detail(
@@ -247,6 +337,58 @@ def test_pdf_pipeline_escapes_xss_and_excludes_customer_detail(
     assert "AI context" not in html
 
 
+def test_pdf_diagnostic_logs_are_structured_and_exclude_input(
+    client: TestClient, monkeypatch, caplog
+) -> None:
+    private_values = (
+        "PRIVATE_FILE_NAME.csv",
+        "PRIVATE_PRODUCT",
+        "PRIVATE_CATEGORY",
+        "PRIVATE_REGION",
+        "PRIVATE_CUSTOMER",
+        "PRIVATE_EXCEPTION",
+    )
+
+    def failed(report):
+        raise PdfReportError(PdfErrorCode.RENDER_FAILED) from RuntimeError(
+            private_values[-1]
+        )
+
+    monkeypatch.setattr("app.web.routes.pdf_report_renderer.render_pdf", failed)
+    data = (
+        b"date,product,category,region,quantity,unit_price,customer_type\n"
+        b"2026-01-01,PRIVATE_PRODUCT,PRIVATE_CATEGORY,PRIVATE_REGION,1,10,PRIVATE_CUSTOMER\n"
+    )
+    logger_name = "uvicorn.error.equa_analytics.pdf"
+    with caplog.at_level(logging.INFO, logger=logger_name):
+        response = client.post(
+            "/reports/pdf",
+            files={"file": (private_values[0], data, "text/csv")},
+        )
+
+    assert response.status_code == 500
+    messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == logger_name
+    ]
+    events = [json.loads(message) for message in messages]
+    assert [event["event"] for event in events] == [
+        "pdf_slot_attempt",
+        "pdf_slot_acquired",
+        "pdf_render_start",
+        "pdf_render_failed",
+        "pdf_slot_released",
+    ]
+    assert len({event["request_id"] for event in events}) == 1
+    assert all("process_id" in event and "elapsed_ms" in event for event in events)
+    serialized = "".join(messages)
+    for forbidden in private_values:
+        assert forbidden not in serialized
+    assert "filename" not in serialized.lower()
+    assert "raw" not in serialized.lower()
+
+
 def test_dashboard_keeps_html_and_adds_pdf_download(client: TestClient) -> None:
     response = client.post(
         "/dashboard", files={"file": ("sales.csv", SAMPLE, "text/csv")}
@@ -257,3 +399,12 @@ def test_dashboard_keeps_html_and_adds_pdf_download(client: TestClient) -> None:
     assert 'action="/reports/pdf"' in response.text
     assert "Download HTML Report" in response.text
     assert "Download PDF Report" in response.text
+    assert "data-pdf-form" in response.text
+    assert "data-pdf-submit" in response.text
+
+    script = client.get("/static/js/app.js").text
+    assert 'form.dataset.submitting === "true"' in script
+    assert "button.disabled = true" in script
+    assert "resetPdfForm(form)" in script
+    assert "window.setTimeout" in script
+    assert 'window.addEventListener("pageshow"' in script

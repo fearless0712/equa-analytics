@@ -1,5 +1,7 @@
 from pathlib import Path
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 import secrets
 
 from fastapi import FastAPI
@@ -14,6 +16,12 @@ from app.web.routes import router
 APP_DIR = Path(__file__).resolve().parent
 
 
+@asynccontextmanager
+async def app_lifespan(application: FastAPI) -> AsyncIterator[None]:
+    application.state.pdf_semaphore = asyncio.Semaphore(1)
+    yield
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     app_settings = settings or get_settings()
     application = FastAPI(
@@ -21,13 +29,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         debug=app_settings.debug,
         docs_url=None if app_settings.environment.value == "production" else "/docs",
         redoc_url=None,
+        lifespan=app_lifespan,
     )
     application.state.settings = app_settings
     csrf_secret = app_settings.secret_key.get_secret_value().strip() or secrets.token_urlsafe(32)
     application.state.csrf = CsrfProtector(csrf_secret)
     application.state.ai_rate_limiter = InMemoryRateLimiter(limit=3, window_seconds=600)
     application.state.pdf_rate_limiter = InMemoryRateLimiter(limit=5, window_seconds=600)
-    application.state.pdf_semaphore = asyncio.Semaphore(1)
     application.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
     application.include_router(router)
 
