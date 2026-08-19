@@ -87,22 +87,22 @@
     {% endfor %}
   </section>
 
-  <section class="report-section">
+  <section class="report-section ai-content">
     <div class="section-title"><span class="section-number">08</span><h2>AI Analysis</h2></div>
     {% if report.ai_status.value == "included" and report.ai %}
-      <h3>Executive Interpretation</h3><p>{{ report.ai.executive_summary }}</p>
-      <h3>Key Findings</h3><ul class="insight-list">{% for finding in report.ai.key_findings %}<li><span class="severity">{{ finding.importance.value }}</span><h3>{{ finding.title }}</h3><p>{{ finding.observation }}</p><p><strong>Evidence:</strong> {{ finding.evidence | ai_evidence }}</p></li>{% else %}<li>No AI findings were provided.</li>{% endfor %}</ul>
-      {% if report.ai.risks_or_watchpoints %}<h3>Risks and Watchpoints</h3><ul>{% for item in report.ai.risks_or_watchpoints %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
-      {% if report.ai.recommended_checks %}<h3>Recommended Checks</h3><ul>{% for item in report.ai.recommended_checks %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
-      {% if report.ai.data_quality_note %}<h3>Data Quality Note</h3><p>{{ report.ai.data_quality_note }}</p>{% endif %}
-      {% if report.ai.optional_next_questions %}<h3>Next Questions</h3><ul>{% for item in report.ai.optional_next_questions %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      <h3>Executive Interpretation</h3><p>{{ report.ai.executive_summary | ai_text }}</p>
+      <h3>Key Findings</h3><ul class="insight-list">{% for finding in report.ai.key_findings %}<li><span class="severity">{{ finding.importance.value }}</span><h3>{{ finding.title | ai_text }}</h3><p>{{ finding.observation | ai_text }}</p><p><strong>Evidence:</strong> {{ finding.evidence | ai_text }}</p></li>{% else %}<li>No AI findings were provided.</li>{% endfor %}</ul>
+      {% if report.ai.risks_or_watchpoints %}<h3>Risks and Watchpoints</h3><ul>{% for item in report.ai.risks_or_watchpoints %}<li>{{ item | ai_text }}</li>{% endfor %}</ul>{% endif %}
+      {% if report.ai.recommended_checks %}<h3>Recommended Checks</h3><ul>{% for item in report.ai.recommended_checks %}<li>{{ item | ai_text }}</li>{% endfor %}</ul>{% endif %}
+      {% if report.ai.data_quality_note %}<h3>Data Quality Note</h3><p>{{ report.ai.data_quality_note | ai_text }}</p>{% endif %}
+      {% if report.ai.optional_next_questions %}<h3>Next Questions</h3><ul>{% for item in report.ai.optional_next_questions %}<li>{{ item | ai_text }}</li>{% endfor %}</ul>{% endif %}
     {% elif report.ai_status.value == "unavailable" %}<p class="fallback">AI interpretation was unavailable. All deterministic analysis remains complete.</p>
     {% else %}<p class="fallback">AI interpretation was not requested. This report is based entirely on deterministic analysis.</p>{% endif %}
   </section>
 
-  <section class="report-section">
+  <section class="report-section ai-content">
     <div class="section-title"><span class="section-number">09</span><h2>Recommended Actions</h2></div>
-    {% if report.ai_status.value == "included" and report.ai %}<ol class="action-list">{% for item in report.ai.recommendations %}<li><span class="priority">{{ item.priority.value }}</span><h3>{{ item.title }}</h3><p><strong>Why:</strong> {{ item.rationale }}</p><p><strong>Action:</strong> {{ item.action }}</p><div class="evidence"><strong>Evidence</strong><ul>{% for evidence in item.evidence %}<li>{{ evidence | ai_evidence }}</li>{% endfor %}</ul></div>{% if item.related_metric %}<p><strong>Related Metric:</strong> {{ item.related_metric }}</p>{% endif %}{% if item.related_dimension %}<p><strong>Related Dimension:</strong> {{ item.related_dimension }}</p>{% endif %}{% if item.caution %}<p><strong>Caution:</strong> {{ item.caution }}</p>{% endif %}</li>{% else %}<li>No evidence-backed actions were provided.</li>{% endfor %}</ol>
+    {% if report.ai_status.value == "included" and report.ai %}<ol class="action-list">{% for item in report.ai.recommendations %}<li><span class="priority">{{ item.priority.value }}</span><h3>{{ item.title | ai_text }}</h3><p><strong>Why:</strong> {{ item.rationale | ai_text }}</p><p><strong>Action:</strong> {{ item.action | ai_text }}</p><div class="evidence"><strong>Evidence</strong><ul>{% for evidence in item.evidence %}<li>{{ evidence | ai_text }}</li>{% endfor %}</ul></div>{% if item.related_metric %}<p><strong>Related Metric:</strong> {{ item.related_metric | ai_text }}</p>{% endif %}{% if item.related_dimension %}<p><strong>Related Dimension:</strong> {{ item.related_dimension | ai_text }}</p>{% endif %}{% if item.caution %}<p><strong>Caution:</strong> {{ item.caution | ai_text }}</p>{% endif %}</li>{% else %}<li>No evidence-backed actions were provided.</li>{% endfor %}</ol>
     {% else %}<p class="fallback">No AI recommendations are included. Review the deterministic insights above before deciding on actions.</p>{% endif %}
   </section>
 

@@ -124,11 +124,56 @@ Open `http://127.0.0.1:8000` and upload `sample_data/valid_sales.csv`.
 
 ## Production Notes
 
-Set `EQUA_ANALYTICS_ENV=production`, provide a strong
-`EQUA_ANALYTICS_SECRET_KEY`, and keep debug disabled. API docs are disabled in
-production. Fake AI is rejected unless `ALLOW_FAKE_AI_IN_PRODUCTION=true` is set
-deliberately. Missing OpenAI configuration does not prevent normal dashboard use.
-For a Render web service, use one worker and the start command
-`uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+Production uses the repository `Dockerfile`, based on Python 3.12.13 and Debian
+Bookworm slim. The image installs the Pango, HarfBuzz, Fontconfig, and DejaVu
+runtime packages required for WeasyPrint PDF rendering, then runs as a non-root
+user. Python is patch-pinned in Docker and `.python-version`; dependency ranges
+remain declared in `pyproject.toml`.
+
+The container starts one worker with:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --workers 1
+```
+
+One worker is required for the v1.0 process-local PDF semaphore and in-memory
+rate limits. Render supplies `PORT`; the image defaults to `10000` outside
+Render. `PYTHON_VERSION` is not required for the Docker runtime because the
+Python version is fixed by the base image.
+
+Required production environment variables:
+
+- `EQUA_ANALYTICS_ENV=production`
+- `EQUA_ANALYTICS_SECRET_KEY`: strong secret, configured only in Render
+- `AI_MODE`: `disabled`, `fake`, or `openai`; the Blueprint defaults to `disabled`
+- `OPENAI_API_KEY`: required only when `AI_MODE=openai`
+- `OPENAI_MODEL`: required only when `AI_MODE=openai`
+- `PORT`: managed by Render
+
+API docs are disabled in production. Fake AI is rejected unless
+`ALLOW_FAKE_AI_IN_PRODUCTION=true` is deliberately configured. Missing OpenAI
+configuration does not prevent deterministic dashboard and report use.
+
+`render.yaml` defines a Docker web service, disables automatic deployment for a
+deliberate v1.0 release, and uses the lightweight `GET /health` endpoint. The
+health check does not access AI, generate a PDF, or require persistent storage.
+Create a new Blueprint service or explicitly switch the existing service to the
+Docker runtime; do not change a live native-runtime service without a rollback
+plan. Enter secret values in the Render dashboard when prompted.
+
+Before deployment, build and run the offline production smoke check:
+
+```bash
+docker build -t equa-analytics:v1 .
+docker run --rm \
+  -e EQUA_ANALYTICS_ENV=production \
+  -e EQUA_ANALYTICS_SECRET_KEY=replace-with-a-local-smoke-secret \
+  --entrypoint python equa-analytics:v1 scripts/production_smoke.py
+```
+
+The smoke check verifies Python 3.12, WeasyPrint/Pango capability, application
+import, and deterministic sample PDF generation without calling an AI provider.
+For a running container, verify `GET /health` returns HTTP 200; Docker also runs
+this check through its built-in `HEALTHCHECK`.
 
 No public deployment URL is configured yet.

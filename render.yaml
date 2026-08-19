@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: equa-analytics
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: EQUA_ANALYTICS_ENV
+        value: production
+      - key: EQUA_ANALYTICS_SECRET_KEY
+        sync: false
+      - key: AI_MODE
+        value: disabled
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: WEB_CONCURRENCY
+        value: "1"

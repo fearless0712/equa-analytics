@@ -42,6 +42,24 @@ AI_EVIDENCE_PATH_PATTERN = re.compile(
 AI_EVIDENCE_INLINE_SEVERITY_PATTERN = re.compile(
     r"severity\s*=\s*(?P<value>[a-z][a-z_-]*)", re.IGNORECASE
 )
+AI_TEXT_DIRECTION_PERCENT_PATTERN = re.compile(
+    r"(?P<prefix>\b(?:declined|decreased|increased|grew|changed)\s+by\s+)"
+    r"(?P<value>-?\d+\.\d{3,})(?:\.\.\.)?",
+    re.IGNORECASE,
+)
+AI_TEXT_LEADING_SHARE_PATTERN = re.compile(
+    r"(?P<prefix>\bthe\s+leading\s+(?:product|category|region)\s+represents\s+)"
+    r"(?P<value>-?\d+\.\d{3,})(?:\.\.\.)?%?",
+    re.IGNORECASE,
+)
+AI_TEXT_KEYED_DECIMAL_PATTERN = re.compile(
+    r"(?P<key>sales_share|[a-z][a-z0-9_]*_share|change_pct|"
+    r"[a-z][a-z0-9_]*_pct|percentage\s+change|percentage|change_amount|"
+    r"amount|unit_price|sales|quantity|count)"
+    r"(?P<separator>\s*(?:=|:|\bis\b|\bwas\b|\bof\b)\s*)"
+    r"(?P<value>-?\d+\.\d{3,})(?:\.\.\.)?%?",
+    re.IGNORECASE,
+)
 EVIDENCE_LABELS = {
     "top_one_share": "Leading share",
     "top_three_share": "Top three share",
@@ -267,3 +285,48 @@ def format_ai_evidence(value: str) -> str:
         segment if index % 2 else format_known_pattern(segment)
         for index, segment in enumerate(segments)
     )
+
+
+def format_ai_text_for_display(text: str) -> str:
+    """Format only recognized high-precision metrics in untrusted AI text."""
+    formatted = format_ai_evidence(text)
+    formatted = PERCENT_VALUE_PATTERN.sub(
+        lambda match: format_percentage(Decimal(match.group()[:-1])),
+        formatted,
+    )
+    formatted = AI_TEXT_DIRECTION_PERCENT_PATTERN.sub(
+        lambda match: (
+            f"{match.group('prefix')}"
+            f"{format_percentage(Decimal(match.group('value')))}"
+        ),
+        formatted,
+    )
+    formatted = AI_TEXT_LEADING_SHARE_PATTERN.sub(
+        lambda match: (
+            f"{match.group('prefix')}"
+            f"{format_percentage(Decimal(match.group('value')))}"
+        ),
+        formatted,
+    )
+
+    def replace_keyed_decimal(match: re.Match[str]) -> str:
+        key = match.group("key")
+        normalized_key = key.lower().replace(" ", "_")
+        number = Decimal(match.group("value"))
+        if (
+            "share" in normalized_key
+            or "pct" in normalized_key
+            or "percentage" in normalized_key
+        ):
+            value = format_percentage(number)
+        elif normalized_key in {"quantity", "count"}:
+            value = (
+                format_integer(int(number))
+                if number == number.to_integral_value()
+                else format_decimal(number)
+            )
+        else:
+            value = format_decimal(number)
+        return f"{key.replace('_', ' ')}{match.group('separator')}{value}"
+
+    return AI_TEXT_KEYED_DECIMAL_PATTERN.sub(replace_keyed_decimal, formatted)

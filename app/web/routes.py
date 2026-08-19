@@ -33,6 +33,7 @@ from app.web.responses import SafeJSONResponse
 from app.web.upload_adapter import read_bounded_upload
 from app.presentation.charts import build_dashboard_charts
 from app.presentation.formatters import (
+    format_ai_text_for_display,
     format_decimal,
     format_insight_summary,
     format_integer,
@@ -59,6 +60,7 @@ html_report_renderer = HtmlReportRenderer()
 pdf_report_renderer = PdfReportRenderer(html_report_renderer)
 templates = Jinja2Templates(directory=Path(__file__).resolve().parents[1] / "templates")
 templates.env.filters.update(
+    ai_text=format_ai_text_for_display,
     decimal=format_decimal,
     insight_summary=format_insight_summary,
     integer=format_integer,

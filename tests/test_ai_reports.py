@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from fastapi.testclient import TestClient
 
@@ -49,6 +50,19 @@ def test_ai_html_report_includes_fake_ai_once(monkeypatch) -> None:
     assert "AI Analysis" in response.text
     assert "Executive Interpretation" in response.text
     assert "Recommended Actions" in response.text
+
+
+def test_fake_ai_html_report_has_no_high_precision_decimal_text() -> None:
+    with _client() as client:
+        response = client.post(
+            "/reports/html/ai",
+            files={"file": ("sales.csv", SAMPLE, "text/csv")},
+        )
+
+    assert response.status_code == 200
+    assert not re.findall(r"-?\d+\.\d{6,}", response.text)
+    assert "30.44%" in response.text
+    assert "-6.83%" in response.text
     assert "Next Questions" in response.text
     assert "private-name.csv" not in response.text
     assert "AI interpretation was unavailable" not in response.text

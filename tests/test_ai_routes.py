@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from fastapi.testclient import TestClient
 
@@ -70,6 +71,20 @@ def test_ai_ui_has_loading_and_double_submit_protection(client: TestClient) -> N
     assert "Generating..." in script.text
     assert 'form.dataset.submitting === "true"' in script.text
     assert "innerHTML" not in script.text
+
+
+def test_fake_ai_dashboard_has_no_high_precision_decimal_text() -> None:
+    with _client(AiMode.FAKE) as client:
+        response = client.post(
+            "/ai/insights", files={"file": ("sales.csv", SAMPLE, "text/csv")}
+        )
+
+    ai_output = response.text.split('<div class="ai-results"', 1)[1].split(
+        '<form action="/ai/insights"', 1
+    )[0]
+    assert not re.findall(r"-?\d+\.\d{6,}", ai_output)
+    assert "30.44%" in ai_output
+    assert "-6.83%" in ai_output
 
 
 def test_ai_recommendation_output_is_escaped(client: TestClient) -> None:

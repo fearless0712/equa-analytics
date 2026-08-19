@@ -2,6 +2,7 @@ import asyncio
 import csv
 import json
 import logging
+import re
 from io import StringIO
 from pathlib import Path
 from threading import Event, Lock
@@ -20,6 +21,7 @@ from app.presentation.pdf_report_renderer import (
     PdfReportError,
     PdfReportRenderer,
     reject_external_url,
+    _create_pdf_document,
 )
 from app.presentation.report_charts import build_report_charts
 from app.config import Environment, Settings
@@ -160,6 +162,32 @@ def test_pdf_source_html_formats_ai_finding_and_recommendation_evidence(
     assert "30.436348667284141195842338170217" not in captured["html"]
     assert "-12.514370175726720315322713089" not in captured["html"]
     assert "27.606257075228980" not in captured["html"]
+
+
+def test_fake_ai_pdf_has_no_high_precision_text_or_horizontal_overflow() -> None:
+    analysis, insights = _results()
+    ai = FakeAiProvider().generate(build_ai_context(analysis, insights))
+    report = build_business_report(analysis, insights, ai=ai)
+    html = HtmlReportRenderer().render(report)
+
+    assert not re.findall(r"-?\d+\.\d{6,}", html)
+    output = PdfReportRenderer().render_pdf(report)
+    assert output.startswith(b"%PDF-")
+    assert len(output) < MAX_PDF_REPORT_BYTES
+
+    document = _create_pdf_document(html).render()
+    overflow = []
+    for page_number, page in enumerate(document.pages, start=1):
+        def inspect_box(box) -> None:
+            right = getattr(box, "position_x", 0) + getattr(box, "width", 0)
+            if right > page.width + 1:
+                overflow.append((page_number, type(box).__name__, right))
+            for child in getattr(box, "children", ()):
+                inspect_box(child)
+
+        inspect_box(page._page_box)
+
+    assert overflow == []
 
 
 def test_external_url_fetcher_rejects_every_scheme_without_disclosure() -> None:
