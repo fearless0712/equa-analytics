@@ -270,13 +270,13 @@ def test_ai_report_escapes_ai_output_and_formats_evidence(monkeypatch) -> None:
     assert response.text.lower().count("<script") == 0
 
 
-def test_dashboard_exposes_explicit_ai_report_actions() -> None:
+def test_dashboard_exposes_optional_ai_report_control() -> None:
     with _client() as client:
         response = client.post(
             "/dashboard", files={"file": ("sales.csv", SAMPLE, "text/csv")}
         )
 
-    assert 'action="/reports/html/ai"' in response.text
-    assert 'action="/reports/pdf/ai"' in response.text
-    assert "Download AI HTML Report" in response.text
-    assert "Download AI PDF Report" in response.text
+    assert 'id="report-include-ai"' in response.text
+    assert 'role="switch"' in response.text
+    assert "Include AI interpretation" in response.text
+    assert "Uses deterministic analysis only." in response.text

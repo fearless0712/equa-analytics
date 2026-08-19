@@ -496,22 +496,20 @@ def test_pdf_diagnostic_logs_are_structured_and_exclude_input(
     assert "raw" not in serialized.lower()
 
 
-def test_dashboard_keeps_html_and_adds_pdf_download(client: TestClient) -> None:
+def test_dashboard_has_unified_report_download(client: TestClient) -> None:
     response = client.post(
         "/dashboard", files={"file": ("sales.csv", SAMPLE, "text/csv")}
     )
 
     assert response.status_code == 200
-    assert 'action="/reports/html"' in response.text
     assert 'action="/reports/pdf"' in response.text
-    assert "Download HTML Report" in response.text
-    assert "Download PDF Report" in response.text
-    assert "data-pdf-form" in response.text
-    assert "data-pdf-submit" in response.text
+    assert "Download Report" in response.text
+    assert "data-report-form" in response.text
+    assert "data-report-submit" in response.text
 
     script = client.get("/static/js/app.js").text
     assert 'form.dataset.submitting === "true"' in script
     assert "button.disabled = true" in script
-    assert "resetPdfForm(form)" in script
+    assert "resetReportForm(form)" in script
     assert "window.setTimeout" in script
     assert 'window.addEventListener("pageshow"' in script

@@ -35,34 +35,63 @@ document.querySelectorAll("[data-upload-form]").forEach((form) => {
 
 window.addEventListener("pageshow", () => {
   document.querySelectorAll("[data-upload-form]").forEach(resetUploadForm);
-  document.querySelectorAll("[data-pdf-form]").forEach(resetPdfForm);
+  document.querySelectorAll("[data-report-form]").forEach(resetReportForm);
 });
 
-function resetPdfForm(form) {
-  const button = form.querySelector("[data-pdf-submit]");
-  const label = form.querySelector("[data-pdf-label]");
+const BUSINESS_REPORT_ACTIONS = Object.freeze({
+  "pdf,false": "/reports/pdf",
+  "pdf,true": "/reports/pdf/ai",
+  "html,false": "/reports/html",
+  "html,true": "/reports/html/ai",
+});
+
+function getBusinessReportAction(format, includeAi) {
+  return BUSINESS_REPORT_ACTIONS[`${format},${includeAi}`] || null;
+}
+
+function resetReportForm(form) {
+  const button = form.querySelector("[data-report-submit]");
+  const label = form.querySelector("[data-report-label]");
   form.dataset.submitting = "false";
   form.setAttribute("aria-busy", "false");
   if (button) button.disabled = false;
-  if (label) label.textContent = "Download PDF Report";
+  if (label) label.textContent = "Download Report";
 }
 
-document.querySelectorAll("[data-pdf-form]").forEach((form) => {
-  const button = form.querySelector("[data-pdf-submit]");
-  const label = form.querySelector("[data-pdf-label]");
+document.querySelectorAll("[data-report-form]").forEach((form) => {
+  const button = form.querySelector("[data-report-submit]");
+  const label = form.querySelector("[data-report-label]");
+  const aiToggle = form.querySelector("[name='include_ai']");
+  const aiHelp = form.querySelector("[data-report-ai-help]");
   let resetTimer;
 
-  resetPdfForm(form);
+  const updateAiHelp = () => {
+    if (!aiHelp) return;
+    aiHelp.textContent = aiToggle?.checked
+      ? "Adds AI interpretation and recommendations to the deterministic analysis."
+      : "Uses deterministic analysis only.";
+  };
+
+  resetReportForm(form);
+  updateAiHelp();
+  aiToggle?.addEventListener("change", updateAiHelp);
   form.addEventListener("submit", (event) => {
     if (form.dataset.submitting === "true") {
       event.preventDefault();
       return;
     }
+    const format = form.querySelector("[name='report_format']:checked")?.value;
+    const action = getBusinessReportAction(format, Boolean(aiToggle?.checked));
+    if (!action) {
+      event.preventDefault();
+      return;
+    }
+    form.action = action;
     form.dataset.submitting = "true";
     form.setAttribute("aria-busy", "true");
     if (button) button.disabled = true;
-    if (label) label.textContent = "Generating PDF...";
+    if (label) label.textContent = "Generating Report...";
     window.clearTimeout(resetTimer);
-    resetTimer = window.setTimeout(() => resetPdfForm(form), 10000);
+    resetTimer = window.setTimeout(() => resetReportForm(form), 10000);
   });
 });

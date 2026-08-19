@@ -261,5 +261,5 @@ def test_dashboard_exposes_report_download_form(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert 'action="/reports/html"' in response.text
-    assert "Download HTML Report" in response.text
+    assert 'data-report-form' in response.text
+    assert "Download Report" in response.text

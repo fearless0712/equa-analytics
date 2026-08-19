@@ -128,30 +128,30 @@
   </section>
 
   <section class="section-block" aria-labelledby="report-title">
-    <div class="section-heading"><div><p class="section-index">09</p><h2 id="report-title">Business Report</h2></div><p>Download a self-contained HTML report from the same validated CSV.</p></div>
-    <form action="/reports/html" method="post" enctype="multipart/form-data">
+    <div class="section-heading"><div><p class="section-index">09</p><h2 id="report-title">Business Report</h2></div><p>Generate a downloadable business performance report from the selected CSV.</p></div>
+    <form class="report-panel" action="/reports/pdf" method="post" enctype="multipart/form-data" data-report-form aria-busy="false">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="report-csv-file">Select the same CSV to build the report</label>
-      <input id="report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
-      <button class="primary-button" type="submit">Download HTML Report</button>
-    </form>
-    <form action="/reports/pdf" method="post" enctype="multipart/form-data" data-pdf-form aria-busy="false">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="pdf-report-csv-file">Select the same CSV to build the PDF report</label>
-      <input id="pdf-report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
-      <button class="primary-button" type="submit" data-pdf-submit><span data-pdf-label>Download PDF Report</span></button>
-    </form>
-    <form action="/reports/html/ai" method="post" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="ai-report-csv-file">Select the same CSV to include optional AI analysis</label>
-      <input id="ai-report-csv-file" name="file" type="file" accept=".csv,text/csv" required {% if ai_mode == 'disabled' %}disabled{% endif %}>
-      <button class="primary-button" type="submit" {% if ai_mode == 'disabled' %}disabled{% endif %}>{{ "AI Report unavailable" if ai_mode == "disabled" else "Download AI HTML Report" }}</button>
-    </form>
-    <form action="/reports/pdf/ai" method="post" enctype="multipart/form-data" data-pdf-form aria-busy="false">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="ai-pdf-report-csv-file">Select the same CSV to include optional AI analysis in PDF</label>
-      <input id="ai-pdf-report-csv-file" name="file" type="file" accept=".csv,text/csv" required {% if ai_mode == 'disabled' %}disabled{% endif %}>
-      <button class="primary-button" type="submit" data-pdf-submit {% if ai_mode == 'disabled' %}disabled{% endif %}><span data-pdf-label>{{ "AI Report unavailable" if ai_mode == "disabled" else "Download AI PDF Report" }}</span></button>
+      <div class="report-file-control">
+        <label for="report-csv-file">CSV file</label>
+        <input id="report-csv-file" name="file" type="file" accept=".csv,text/csv" required>
+      </div>
+      <fieldset class="report-options">
+        <legend>Format</legend>
+        <label><input type="radio" name="report_format" value="pdf" checked> PDF</label>
+        <label><input type="radio" name="report_format" value="html"> HTML</label>
+      </fieldset>
+      <div class="report-ai-control">
+        <div>
+          <span id="report-ai-label" class="control-label">AI Analysis</span>
+          <p id="report-ai-help" data-report-ai-help>Uses deterministic analysis only.</p>
+        </div>
+        <label class="toggle-control" for="report-include-ai">
+          <input id="report-include-ai" name="include_ai" type="checkbox" role="switch" aria-describedby="report-ai-help" {% if ai_mode == 'disabled' %}disabled{% endif %}>
+          <span aria-hidden="true" class="toggle-track"><span></span></span>
+          <span>{{ "AI unavailable" if ai_mode == "disabled" else "Include AI interpretation" }}</span>
+        </label>
+      </div>
+      <button class="primary-button report-submit" type="submit" data-report-submit><span data-report-label>Download Report</span></button>
     </form>
   </section>
 </div>

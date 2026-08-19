@@ -190,3 +190,41 @@ def test_static_assets_include_responsive_and_submit_safeguards(
     assert 'form.setAttribute("aria-busy", "true")' in javascript.text
     assert 'window.addEventListener("pageshow"' in javascript.text
     assert len(plotly.content) > 1_000_000
+
+
+def test_dashboard_has_one_accessible_business_report_form(client: TestClient) -> None:
+    sample = Path("sample_data/valid_sales.csv").read_bytes()
+    response = client.post(
+        "/dashboard", files={"file": ("sales.csv", sample, "text/csv")}
+    )
+    report = response.text.split('aria-labelledby="report-title"', 1)[1]
+
+    assert report.count('type="file"') == 1
+    assert report.count('data-report-submit') == 1
+    assert report.count("Download Report") == 1
+    assert 'for="report-csv-file"' in report
+    assert '<legend>Format</legend>' in report
+    assert 'value="pdf" checked' in report
+    assert 'value="html"' in report
+    assert 'for="report-include-ai"' in report
+    assert 'type="checkbox" role="switch"' in report
+    assert 'type="checkbox" role="switch" aria-describedby="report-ai-help" checked' not in report
+    assert 'name="csrf_token"' in report
+
+
+def test_business_report_javascript_uses_fixed_action_allowlist(
+    client: TestClient,
+) -> None:
+    script = client.get("/static/js/app.js").text
+
+    for mapping in (
+        '"pdf,false": "/reports/pdf"',
+        '"pdf,true": "/reports/pdf/ai"',
+        '"html,false": "/reports/html"',
+        '"html,true": "/reports/html/ai"',
+    ):
+        assert mapping in script
+    assert "function getBusinessReportAction(format, includeAi)" in script
+    assert "form.action = action" in script
+    assert "Generating Report..." in script
+    assert "innerHTML" not in script
