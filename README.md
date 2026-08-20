@@ -1,126 +1,156 @@
 # EQUA Analytics
 
-EQUA Analytics turns a sales CSV into validated KPIs, monthly trends, dimension
-rankings, data-quality findings, and a decision-support dashboard. It helps
-business users review performance without relying on AI for calculations.
+販売CSVをアップロードすると、入力検証、売上集計、時系列・商品・カテゴリ・地域別分析、データ品質評価を行い、ダッシュボードとBusiness Reportを生成するWebアプリケーションです。
 
-Version 1.0 is the first public portfolio and MVP release. Use only fictional
-or non-confidential data unless your deployment and provider policies have been
-reviewed for the intended data.
+数値計算と異常候補の検出は決定論的なロジックで行い、AIは計算済み結果の解釈と確認事項の提案に限定しています。ポートフォリオ兼MVPとして、分析の正確性だけでなく、入力検証、プライバシー、障害時のfallback、PDF生成を含む一連の業務フローを実装しています。
 
-## Key Features
+**Production:** [https://equa-analytics.onrender.com](https://equa-analytics.onrender.com)
 
-- Strict CSV validation and normalization before analysis
-- Exact Decimal-based sales calculations and pandas aggregation
-- Monthly, product, category, and regional performance analysis
-- Five interactive Plotly charts with supporting accessible tables
-- Deterministic change, concentration, quality, and potential-outlier detection
-- Optional, button-triggered AI interpretation with a deterministic Fake mode
-- Self-contained HTML and PDF business report exports with five static SVG charts
+## 提供する価値
 
-## Processing Flow
+- 売上CSVを、確認しやすいKPI・グラフ・ランキングへ変換
+- 月次推移、商品・カテゴリ・地域ごとの実績を同じ画面で比較
+- 欠損月、重複行、入力不備、潜在的な外れ値を分析結果と分けて提示
+- 計算済みの根拠に基づくAI解釈を、必要な場合だけ追加
+- HTMLまたはPDFのBusiness Performance Reportとして共有・保存
+- AIが利用できない場合も、決定論的な分析とReport出力を継続
 
-`CSV bytes -> syntax and header validation -> value normalization -> pandas ->
-KPI and dimension analysis -> deterministic insights -> dashboard`
+## 画面と成果物
 
-AI is a separate optional path. Pressing **Generate AI Insights** re-sends the
-same CSV and repeats the server-side pipeline before building a bounded summary.
-No database or client-supplied analysis snapshot is trusted.
+### 1. Dashboard
 
-## CSV Input
+CSVをアップロードすると、検証済みデータからKPI、データ品質、時系列、商品、カテゴリ、地域、検出インサイトを同一のダッシュボードに表示します。
 
-- Required: `date`, `product`, `category`, `region`, `quantity`, `unit_price`
-- Optional: `discount`, `customer_type`
-- Formula: `sales = quantity x unit_price x (1 - discount)`
-- Encoding: UTF-8 or UTF-8 with BOM
-- Limits: 5 MB and 10,000 data rows
-- Date: strict `YYYY-MM-DD`; quantity: non-negative integer
-- Unit price: non-negative Decimal up to 1,000,000,000
-- Discount: Decimal from 0 to 1; blank defaults to 0
-- Text fields: maximum 200 characters
+![EQUA AnalyticsのCSVアップロードとDashboard](docs/images/dashboard.png)
 
-Uploads are processed in memory and are not persistently stored. NUL bytes,
-unknown or duplicate normalized headers, malformed rows, exponent notation,
-NaN, and Infinity are rejected. Duplicate data rows are reported but retained.
+### 2. Monthly Performance Analysis
 
-## Deterministic Analytics
+月次売上と数量をグラフとテーブルで確認できます。前月差・変化率を併記し、元データに存在しない月は補完値として明示します。
 
-The application calculates total sales, quantity, transaction count, average
-order value, average unit price, and unique product/category/region counts.
-Monthly analysis fills missing calendar months with explicit imputed zero points.
-Rankings use deterministic tie-breaking. No cost or gross-profit metric is
-claimed because cost is not part of the v1.0 input contract.
+![月次売上・数量グラフと月次実績テーブル](docs/images/monthly-analysis.png)
 
-Potential outliers use an IQR rule with a minimum sample size. They are review
-candidates, not declarations of fraud or bad data, and no row is removed.
+### 3. AI Insights
 
-## AI Insights
+AIは生のCSVを直接分析せず、サーバーで計算した上限付きコンテキストだけを解釈します。Executive Summary、主要な調査結果、根拠、推奨する確認作業を提示します。KPIの計算や異常検出そのものはAIに依存しません。
 
-AI is optional and does not calculate KPIs, detect anomalies, or receive raw CSV
-rows. It receives only bounded calculated metadata, KPIs, six recent months,
-top-five dimensions, and limited deterministic insights. The context is capped
-at 12,000 serialized characters.
+![計算済み結果を解釈するAI Insights](docs/images/ai-insights.png)
 
-- `AI_MODE=disabled`: dashboard works without AI
-- `AI_MODE=fake`: deterministic local/test output without external communication
-- `AI_MODE=openai`: official OpenAI SDK and Responses API Structured Outputs
+### 4. Business Performance Report
 
-OpenAI requests use `store=False`, a timeout, limited retries, and a 1,800-token
-output limit. Provider errors never replace the calculated dashboard. AI output
-is decision support and requires human review. Provider retention policies may
-still apply independently of `store=False`.
+Dashboardの統合パネルから、HTML / PDFとAI Analysisの有無を選択してReportを生成できます。ReportにはKPI、月次・ディメンション分析、データ品質、5つの静的SVGチャートが含まれます。
+
+![PDFで出力したBusiness Performance Report](docs/images/business-report.png)
+
+## 主な機能
+
+### Deterministic Analytics
+
+- Total Sales、Total Quantity、Transactions
+- Average Order Value、Average Unit Price
+- 商品・カテゴリ・地域のユニーク数
+- 月次売上・数量・取引件数・前月差・変化率
+- 商品・カテゴリ・地域別の売上ランキングと構成比
+- 直近の比較可能月におけるカテゴリ増加・減少
+- 売上変化、集中度、ゼロ活動、データ不足のdeterministic insights
+- IQRルールによる潜在的な外れ値候補の検出
+
+金額計算には`Decimal`を使用します。欠損している暦月はimputed zeroとして明示し、ランキングは同順位でも結果が安定する決定論的なルールで並べます。原価を入力項目に含まないため、利益や粗利は算出しません。
+
+### AI Insights
+
+AIへ渡すのは、計算済みのメタデータ、KPI、直近6か月、上位5件のディメンション、件数を制限したdeterministic insightsです。コンテキストは最大12,000文字です。
+
+- `AI_MODE=disabled`: AIなしでDashboardとReportを利用
+- `AI_MODE=fake`: 外部通信を行わない開発・テスト用の決定論的出力
+- `AI_MODE=openai`: OpenAI Responses APIとStructured Outputsを利用
+
+OpenAI requestは`store=False`、timeout、制限付きretry、最大1,800 output tokensで実行します。AIにはKPIの再計算、原因の断定、裏付けのない価格・人員・在庫・マーケティング判断を行わせず、調査・検証・モニタリングの提案に限定しています。provider failureやrate limit時も、計算済みDashboardは失われません。
+
+### Business Report
+
+以下の4パターンを、1つのReportパネルから出力できます。
+
+| Format | AI Analysis | Endpoint |
+|---|---:|---|
+| HTML | OFF | `POST /reports/html` |
+| PDF | OFF | `POST /reports/pdf` |
+| HTML | ON | `POST /reports/html/ai` |
+| PDF | ON | `POST /reports/pdf/ai` |
+
+HTML ReportはCSSと5つのSVGチャートを内包したself-contained形式です。PDFは同じReportモデルからWeasyPrintで生成します。生成物は永続保存せず、HTMLは2 MB、PDFは5 MBの出力上限を設けています。
+
+## CSV仕様
+
+| 種別 | カラム |
+|---|---|
+| 必須 | `date`, `product`, `category`, `region`, `quantity`, `unit_price` |
+| 任意 | `discount`, `customer_type` |
+
+- 売上式: `quantity × unit_price × (1 - discount)`
+- 文字コード: UTF-8 / UTF-8 BOM
+- 上限: 5 MB、10,000データ行
+- 日付: `YYYY-MM-DD`
+- 数量: 0以上の整数
+- 単価: 0以上、最大1,000,000,000
+- 割引率: 0〜1、空欄は0
+- テキスト: 最大200文字
+
+NUL byte、未知または重複した正規化header、不正な列数、指数表記、NaN、Infinityなどを拒否します。重複データ行は品質情報として件数を示しますが、勝手に除外せず計算に保持します。
+
+## Architecture
+
+```text
+CSV upload
+  -> bounded in-memory read
+  -> syntax / header / value validation
+  -> normalization
+  -> pandas aggregation + Decimal calculations
+  -> deterministic analysis and insights
+  -> Dashboard
+       ├─ optional bounded AI interpretation
+       └─ self-contained HTML / WeasyPrint PDF Report
+```
+
+Dashboard、AI、Reportの各routeはCSVをサーバー側で再検証・再計算します。クライアントが送る分析snapshotを信頼せず、データベースや一時ファイルにも依存しません。
+
+## 主要技術
+
+| 分類 | 技術 |
+|---|---|
+| Backend | Python 3.12, FastAPI, Uvicorn |
+| Validation / Models | Pydantic, Pydantic Settings |
+| Analysis | pandas, Python `Decimal` |
+| Dashboard | Jinja2, Plotly, vanilla JavaScript, CSS |
+| AI | OpenAI Python SDK, Responses API, Structured Outputs |
+| Report | Jinja2, static SVG, WeasyPrint |
+| Testing | pytest, pytest-cov, FastAPI TestClient |
+| Production | Docker, Debian Bookworm slim, Render |
+
+外部のUI libraryは使用せず、dark theme、responsive layout、keyboard focus、form label、accessible table、SVGのtitle/descriptionを実装しています。
 
 ## Security and Privacy
 
-- Expiring signed CSRF tokens protect every POST route
-- AI requests are limited to 3 per 10 minutes per direct client IP
-- CSP keeps `script-src 'self'`; Plotly requires only inline style permission
-- HSTS and Secure cookies are enabled in production
-- All responses use `Cache-Control: no-store` and restrictive security headers
-- API keys and the production secret are environment variables and are not logged
-- CSV content, filenames, AI context, prompts, and AI output are not logged
+- すべてのPOST routeを期限付き署名CSRF tokenで保護
+- Jinja2 autoescapeと安全なSVG生成によるXSS対策
+- CSP、HSTS、`nosniff`、frame拒否、`Cache-Control: no-store`
+- uploadサイズ・行数・値・生成HTML/PDFサイズの上限
+- AI: 10分あたり3 request、PDF: 10分あたり5 requestの制限
+- PDF生成はprocessあたり同時1件、取得待ちtimeoutあり
+- WeasyPrintによる外部URL / file fetchを全面拒否
+- API key、production secret、CSV、filename、AI context、promptをlogへ出力しない
+- uploadとReportをmemory上で処理し、永続保存しない
 
-The rate limiter is in-memory and suitable only for the v1.0 single-worker
-deployment. Multiple workers or instances require a shared store such as Redis.
-
-## Report Exports
-
-Reports are generated from deterministic analytics without requiring AI. Both
-self-contained HTML and PDF exports are processed in memory and are never
-persistently stored. PDF generation uses WeasyPrint and permits one concurrent
-render per process, with a separate limit of five requests per ten minutes per
-direct client IP. These controls assume a single-worker deployment.
-
-PDF rendering can be CPU- and memory-intensive on Render Free instances. The
-v1.0 limits report contents and enforces a 5 MB generated PDF cap.
-
-## Tech Stack
-
-Python 3.12, FastAPI, Pydantic Settings, pandas, Plotly, Jinja2, WeasyPrint,
-OpenAI Python SDK, pytest, and Uvicorn. Version 1.0 has no database, authentication,
-or file persistence.
-
-## v1.0.0 Release Notes
-
-Released 2026-08-20.
-
-- Validated CSV-to-dashboard deterministic analytics with accessible charts and tables
-- Unified Business Report export for deterministic and AI-assisted HTML/PDF output
-- Bounded optional AI interpretation with evidence-backed recommendations and fallback behavior
-- Self-contained report HTML, static SVG charts, and WeasyPrint PDF rendering
-- Signed CSRF protection, bounded uploads and outputs, rate limits, and PDF concurrency control
-- Reproducible Render Docker runtime with Python 3.12, native PDF dependencies, and health checks
+v1.0のrate limiterとPDF semaphoreはprocess-localです。そのためproductionはsingle workerで運用し、複数worker・複数instance化する場合はRedis等の共有基盤が必要です。
 
 ## Testing
 
-The suite covers CSV boundaries, normalization, Decimal calculations, monthly
-and dimension analysis, insights, charts, XSS handling, CSRF, rate limiting, AI
-context limits, Fake AI, and mocked OpenAI responses. Automated tests never call
-the real OpenAI API.
+CSV境界値、正規化、集計、ランキング、insights、chart、Report、XSS、CSRF、rate limit、AI context上限、Fake AI、mocked OpenAI response、PDF concurrency、Docker production設定を自動テストしています。テストは実OpenAI APIを呼びません。
 
 ```bash
 pytest --cov=app --cov-report=term-missing
 ```
+
+v1.0.0 release時点: **259 tests / 95.39% coverage**
 
 ## Local Setup
 
@@ -132,48 +162,28 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` and upload `sample_data/valid_sales.csv`.
+`http://127.0.0.1:8000`を開き、`sample_data/valid_sales.csv`をアップロードします。
 
-## Production Notes
+## Production
 
-Production uses the repository `Dockerfile`, based on Python 3.12.13 and Debian
-Bookworm slim. The image installs the Pango, HarfBuzz, Fontconfig, and DejaVu
-runtime packages required for WeasyPrint PDF rendering, then runs as a non-root
-user. Python is patch-pinned in Docker and `.python-version`; dependency ranges
-remain declared in `pyproject.toml`.
-
-The container starts one worker with:
+productionは`python:3.12.13-slim-bookworm`を基盤とするDocker runtimeです。Pango、HarfBuzz、Fontconfig、DejaVu fontsを明示的に導入し、non-root userかつsingle workerで実行します。
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --workers 1
 ```
 
-One worker is required for the v1.0 process-local PDF semaphore and in-memory
-rate limits. Render supplies `PORT`; the image defaults to `10000` outside
-Render. `PYTHON_VERSION` is not required for the Docker runtime because the
-Python version is fixed by the base image.
-
-Required production environment variables:
+主なenvironment variables:
 
 - `EQUA_ANALYTICS_ENV=production`
-- `EQUA_ANALYTICS_SECRET_KEY`: strong secret, configured only in Render
-- `AI_MODE`: `disabled`, `fake`, or `openai`; the Blueprint defaults to `disabled`
-- `OPENAI_API_KEY`: required only when `AI_MODE=openai`
-- `OPENAI_MODEL`: required only when `AI_MODE=openai`
-- `PORT`: managed by Render
+- `EQUA_ANALYTICS_SECRET_KEY`
+- `AI_MODE=disabled|fake|openai`
+- `OPENAI_API_KEY`（OpenAI modeのみ）
+- `OPENAI_MODEL`（OpenAI modeのみ）
+- `PORT`（Render管理）
 
-API docs are disabled in production. Fake AI is rejected unless
-`ALLOW_FAKE_AI_IN_PRODUCTION=true` is deliberately configured. Missing OpenAI
-configuration does not prevent deterministic dashboard and report use.
+`render.yaml`はDocker web service、`GET /health`、manual deployを定義しています。production serviceはDockerで稼働し、legacy Python serviceはrollback用途として別に保持しています。
 
-`render.yaml` defines a Docker web service, keeps deployment deliberate with
-automatic deployment disabled, and uses the lightweight `GET /health` endpoint. The
-health check does not access AI, generate a PDF, or require persistent storage.
-The production service runs this Docker configuration; the legacy Python service
-is retained separately as a rollback option. Enter secret values in the Render
-dashboard when creating another environment from the Blueprint.
-
-To reproduce or validate the production runtime, build and run the offline smoke check:
+Runtimeのoffline smoke check:
 
 ```bash
 docker build -t equa-analytics:v1 .
@@ -183,9 +193,21 @@ docker run --rm \
   --entrypoint python equa-analytics:v1 scripts/production_smoke.py
 ```
 
-The smoke check verifies Python 3.12, WeasyPrint/Pango capability, application
-import, and deterministic sample PDF generation without calling an AI provider.
-For a running container, verify `GET /health` returns HTTP 200; Docker also runs
-this check through its built-in `HEALTHCHECK`.
+## Limitations
 
-Production: https://equa-analytics.onrender.com
+- v1.0は認証、ユーザー管理、データベース、upload履歴を持ちません
+- currencyはCSV schemaに含まれないため、Reportでは未指定として扱います
+- costデータがないため、利益・粗利分析は行いません
+- AI出力は意思決定支援であり、最終判断には人による確認が必要です
+- 複数worker / instanceには共有rate limiterとconcurrency controlが必要です
+
+## v1.0.0 Release Notes
+
+Released 2026-08-20.
+
+- Validated CSV-to-dashboard deterministic analytics
+- Unified deterministic / AI-assisted HTML and PDF Business Report export
+- Bounded AI interpretation with evidence-backed recommendations and fallback behavior
+- Self-contained HTML, five static SVG charts, and WeasyPrint PDF rendering
+- CSRF protection, bounded upload/output, rate limits, and PDF concurrency control
+- Reproducible Render Docker runtime with Python 3.12 and native PDF dependencies
