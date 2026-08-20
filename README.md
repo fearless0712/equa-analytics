@@ -4,8 +4,9 @@ EQUA Analytics turns a sales CSV into validated KPIs, monthly trends, dimension
 rankings, data-quality findings, and a decision-support dashboard. It helps
 business users review performance without relying on AI for calculations.
 
-The project is at Phase 1, Step 9 and is being prepared for its first public
-release. Use only fictional or non-confidential data during development.
+Version 1.0 is the first public portfolio and MVP release. Use only fictional
+or non-confidential data unless your deployment and provider policies have been
+reviewed for the intended data.
 
 ## Key Features
 
@@ -48,7 +49,7 @@ The application calculates total sales, quantity, transaction count, average
 order value, average unit price, and unique product/category/region counts.
 Monthly analysis fills missing calendar months with explicit imputed zero points.
 Rankings use deterministic tie-breaking. No cost or gross-profit metric is
-claimed because cost is not part of the Phase 1 input contract.
+claimed because cost is not part of the v1.0 input contract.
 
 Potential outliers use an IQR rule with a minimum sample size. They are review
 candidates, not declarations of fraud or bad data, and no row is removed.
@@ -64,7 +65,7 @@ at 12,000 serialized characters.
 - `AI_MODE=fake`: deterministic local/test output without external communication
 - `AI_MODE=openai`: official OpenAI SDK and Responses API Structured Outputs
 
-OpenAI requests use `store=False`, a timeout, limited retries, and a 1,200-token
+OpenAI requests use `store=False`, a timeout, limited retries, and a 1,800-token
 output limit. Provider errors never replace the calculated dashboard. AI output
 is decision support and requires human review. Provider retention policies may
 still apply independently of `store=False`.
@@ -79,7 +80,7 @@ still apply independently of `store=False`.
 - API keys and the production secret are environment variables and are not logged
 - CSV content, filenames, AI context, prompts, and AI output are not logged
 
-The rate limiter is in-memory and suitable only for the Phase 1 single-worker
+The rate limiter is in-memory and suitable only for the v1.0 single-worker
 deployment. Multiple workers or instances require a shared store such as Redis.
 
 ## Report Exports
@@ -91,13 +92,24 @@ render per process, with a separate limit of five requests per ten minutes per
 direct client IP. These controls assume a single-worker deployment.
 
 PDF rendering can be CPU- and memory-intensive on Render Free instances. The
-current Phase 1 limits report contents and enforces a 5 MB generated PDF cap.
+v1.0 limits report contents and enforces a 5 MB generated PDF cap.
 
 ## Tech Stack
 
 Python 3.12, FastAPI, Pydantic Settings, pandas, Plotly, Jinja2, WeasyPrint,
-OpenAI Python SDK, pytest, and Uvicorn. Phase 1 has no database, authentication,
+OpenAI Python SDK, pytest, and Uvicorn. Version 1.0 has no database, authentication,
 or file persistence.
+
+## v1.0.0 Release Notes
+
+Released 2026-08-20.
+
+- Validated CSV-to-dashboard deterministic analytics with accessible charts and tables
+- Unified Business Report export for deterministic and AI-assisted HTML/PDF output
+- Bounded optional AI interpretation with evidence-backed recommendations and fallback behavior
+- Self-contained report HTML, static SVG charts, and WeasyPrint PDF rendering
+- Signed CSRF protection, bounded uploads and outputs, rate limits, and PDF concurrency control
+- Reproducible Render Docker runtime with Python 3.12, native PDF dependencies, and health checks
 
 ## Testing
 
@@ -154,14 +166,14 @@ API docs are disabled in production. Fake AI is rejected unless
 `ALLOW_FAKE_AI_IN_PRODUCTION=true` is deliberately configured. Missing OpenAI
 configuration does not prevent deterministic dashboard and report use.
 
-`render.yaml` defines a Docker web service, disables automatic deployment for a
-deliberate v1.0 release, and uses the lightweight `GET /health` endpoint. The
+`render.yaml` defines a Docker web service, keeps deployment deliberate with
+automatic deployment disabled, and uses the lightweight `GET /health` endpoint. The
 health check does not access AI, generate a PDF, or require persistent storage.
-Create a new Blueprint service or explicitly switch the existing service to the
-Docker runtime; do not change a live native-runtime service without a rollback
-plan. Enter secret values in the Render dashboard when prompted.
+The production service runs this Docker configuration; the legacy Python service
+is retained separately as a rollback option. Enter secret values in the Render
+dashboard when creating another environment from the Blueprint.
 
-Before deployment, build and run the offline production smoke check:
+To reproduce or validate the production runtime, build and run the offline smoke check:
 
 ```bash
 docker build -t equa-analytics:v1 .
@@ -176,4 +188,4 @@ import, and deterministic sample PDF generation without calling an AI provider.
 For a running container, verify `GET /health` returns HTTP 200; Docker also runs
 this check through its built-in `HEALTHCHECK`.
 
-No public deployment URL is configured yet.
+Production: https://equa-analytics.onrender.com
